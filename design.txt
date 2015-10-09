@@ -17,7 +17,9 @@ We also need a Thread Control Block to have the following information:
 2. The thread function can exit either (a) by calling qthread_exit or (b) by returning from 
 the thread start function. How do you handle case (b)?
 
-Ans: 
+Ans: When the thread exits by returning from the thread start function, the return value will 
+be stored on the stack of the thread and we need to copy that to the TCB location for saving the 
+return value (which will be required for join).
 
 
 3. How do you deallocate the thread stack when the thread exits? Note that you can't call 
@@ -85,7 +87,16 @@ end.
 Can you directly use your mutex lock/unlock functions, or factor them in a way that you can 
 use the same mutex code from mutex_lock/unlock and cond_wait?
 
-Ans:
+Ans: A condition variable structure might have the following:
+        (a) A pointer to the list of threads waiting on that condition variable
+        (b) A count of the threads waiting on that condition
+Wait: When a thread calls cond_wait(), wait will unlock the mutex it receives as a parameter,
+and then add the caller thread to the queue for the condition variable it receives as a
+parameter and then go to sleep.
+Signal: When a thread call the cond_signal() function with a condition variable, it causes the 
+first thread waiting on the queue for that condition variable to be woken up. If there are
+no such queued threads, nothing happens.
+We can use a factored code for mutex lock/unlock for cond_wait.
 
 
 9. When do you call select?
