@@ -1,0 +1,52 @@
+1. What needs to be stored in your thread structure? Note that you will need to save the current stack pointer when switching, as well as being able to deallocate the per-thread stack after thread exit.
+
+Ans: The following are required to be stored on the thread structure:
+a. Thread ID
+b. Pointer to the allocated stack (also useful during deletion)
+c. Current Value of the Stack Pointer (useful at the time of context switch)
+d. Return Value (required when the thread becomes a zombie while its waiting for pthread_join)
+
+
+2. The thread function can exit either (a) by calling qthread_exit or (b) by returning from the thread start function. How do you handle case (b)?
+
+
+3. How do you deallocate the thread stack when the thread exits? Note that you can't call free() from the thread using the stack, as the stack will continue to be used until switch() moves to a new stack.
+(a) How do you do this for joinable threads?
+(b) For detached threads?
+
+
+4. How do you hold the return value for a thread if it exits before join() has been called?
+
+
+5. How many different lists (or types of lists) of threads do you have in your design?
+
+
+6. How do you handle the exit of a detached thread?
+
+
+7. What does your mutex structure look like? briefly describe algorithm for lock and unlock
+
+
+8. What does your condition variable structure look like? Briefly describe wait and signal. Can you directly use your mutex lock/unlock functions, or factor them in a way that you can use the same mutex code from mutex_lock/unlock and cond_wait?
+
+
+9. When do you call select?
+(a) How do you know which file descriptors to put in your fdsets?
+(b) How do you calculate the timeout?
+
+
+
+10. where do you put a thread structure
+(a) When the thread is blocked in usleep?
+(b) When it is blocked on I/O? Note that there are several reasonable answers to (b). When blocked on I/O, is the relationship between file descriptor and thread stored in the thread structure, or some external data structure?
+
+
+
+11. How do you organize your lists? (see discussion of linked lists in the PDF)
+
+
+
+12. Why do you need a thread structure for the OS-provided thread corresponding to the original process? What happens if that thread calls qthread_exit? How is this different from any other thread calling qthread_exit?
+
+
+
