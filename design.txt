@@ -79,7 +79,7 @@ mutex_unlock(M):
        if M->queue is EMPTY:        //there are no threads waiting for this mutex
                m->locked = 0                //unlock the mutex
        else
-               run(dequeue(M-<queue))
+               run(dequeue(M->queue))
 end.
 
 
