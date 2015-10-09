@@ -109,5 +109,10 @@ from the queue.
 the original process? What happens if that thread calls qthread_exit? How is this different 
 from any other thread calling qthread_exit?
 
-Ans: 
+Ans: A thread structure is needed for the OS-provided thread corresponding to the original process
+because it can wait on other threads to get the return values by qthread_join().
+When this thread calls qthread_exit(), then this thread and all its child threads get terminated at 
+once i.e. it terminates the entire process.
+This is different from any other thread calling the qthread_exit() as that will only terminate the 
+calling thread.
 
