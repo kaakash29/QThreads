@@ -26,9 +26,12 @@ moves to a new stack.
         (a) How do you do this for joinable threads?
         (b) For detached threads?
 
-Ans: (a) We can maintain a queue for Terminated threads which will be waiting for join(). Once join() 
-happens, we can free the thread stack from the caller thread where the join happened.
-(b) 
+Ans: (a) We can maintain a queue for Terminated threads which will be waiting for join(). 
+Once join() happens, we can free the thread stack from the caller thread where the join happened.
+(b) We can maintain a middle layer between the caller thread and the spawned thread, and when a 
+thread terminates, based on the attribute of the thread (whether detached/joinable), 
+it can either free the stack for the detached thread or put the thread on the Termination 
+Queue for the joinable thread.
 
 
 4. How do you hold the return value for a thread if it exits before join() has been called?
@@ -57,7 +60,25 @@ we need to free its stack immediately on exit.
 
 7. What does your mutex structure look like? briefly describe algorithm for lock and unlock
 
-Ans:
+Ans: A simple mutex structure would have a lock variable to specify whether the mutex is 
+locked or unlocked and a queue specifying all the threads waiting on the mutex. 
+Here is a very trivial implementation of lock and unlock 
+
+mutex_lock (M):
+       if M is already LOCKED : 
+               enqueue(currentThread)
+               switch( getNewThreadFromReadyQueue() )
+       else M is NOT LOCKED : 
+               M->locked = 1
+               enqueue(currentThread)
+end.
+
+mutex_unlock(M):
+       if M->queue is EMPTY:        //there are no threads waiting for this mutex
+               m->locked = 0                //unlock the mutex
+       else
+               run(dequeue(M-<queue))
+end.
 
 
 8. What does your condition variable structure look like? Briefly describe wait and signal. 
