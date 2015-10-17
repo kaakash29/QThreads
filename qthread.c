@@ -65,20 +65,6 @@ static double gettime(void)
     return tv.tv_sec + tv.tv_usec/1.0e6;
 }
 
-/* We don't have to define the qthread structure in qthread.h, since
- * the user program only sees pointers to it.
- */
-struct qthread {
-    /*
-     * note - you can't use 'qthread_t*' in this definition, due to C
-     * limitations. 
-     * use 'struct qthread *' instead, which means the same thing:
-     *    struct qthread *next;
-     */
-
-    /* your code here */
-};
-
 
 /* A good organization is to keep a pointer to the 'current'
  * (i.e. running) thread, and a list of 'active' threads (not

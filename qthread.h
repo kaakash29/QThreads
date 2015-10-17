@@ -29,8 +29,20 @@ typedef struct qthread_cond qthread_cond_t;
 /* A "forward declaration" for the qthread structure itself,
  * which should be defined in qthread.c
  */
-struct qthread;
-typedef struct qthread *qthread_t;
+struct qthread {
+     int time_to_wake_up;
+     struct qthread *next;
+
+
+    /* your code here */
+};
+typedef struct qthread* qthread_t;
+
+struct queue_list {
+	qthread_t front;
+	qthread_t rear;
+};
+typedef struct queue_list* queue_t;
 
 /* function pointer w/ signature 'void *f(void*)'
  */
