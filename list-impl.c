@@ -91,6 +91,10 @@ qthread_t get_new_node(int data) {
 	return new_node;
 }
 
+/* 
+ * print_q : queue -> void
+ * Prints the given queue Q.
+ */
 void print_q(queue Q) {
 	if (Q == NULL) {
 		printf("\nQueue is empty!!!");
@@ -106,6 +110,11 @@ void print_q(queue Q) {
 	}
 }
 
+/* 
+ * main : int -> void
+ * The main functino to test functionality of 
+ * the list/queue operations.
+ */
 int main() {
 	printf("In main");
 	queue Q = NULL;
