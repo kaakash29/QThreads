@@ -270,3 +270,120 @@ int qthread_join(qthread_t thread, void **retval)
 {
     return 0;
 }
+
+
+qthread_t get_new_node(int data) {
+	qthread_t new_node = (qthread_t) malloc(sizeof(struct qthread));
+	new_node->time_to_wake_up = data;
+	new_node->next = NULL;
+	return new_node;
+}
+
+
+/* 
+ * enqueue : queue_t *qthread_t -> void
+ * Adds new_node at the end of the queue if it exists,
+ * else creates a new queue and makes front and rear point to it.
+ */
+void enqueue(queue_t *queue_name, qthread_t new_node) {
+	if (*queue_name == NULL) {
+		*queue_name = (queue_t) malloc(sizeof(struct queue_list));
+		(*queue_name)->front = new_node;
+		(*queue_name)->rear = new_node;
+	}
+	else {
+		qthread_t last_node = (*queue_name)->rear;
+		last_node->next = new_node;
+		(*queue_name)->rear = new_node;
+	}
+}
+
+/* 
+ * dequeue : queue_t -> qthread_t
+ * Removes and returns a node from the front of the queue 
+ * if it exists, otherwise returns NULL.
+ */
+qthread_t dequeue(queue_t *queue_name) {
+	qthread_t removed_node = NULL;
+	if (*queue_name != NULL) {
+		if ((*queue_name)->front == (*queue_name)->rear) {
+			removed_node = (*queue_name)->front;
+			*queue_name = NULL;
+		}
+		else {
+			removed_node = (*queue_name)->front;
+			(*queue_name)->front = (*queue_name)->front->next;
+		} 
+		removed_node->next = NULL;
+	}
+	return removed_node;
+}
+
+/* 
+ * add_thread_to_list : qthread_t qthread_t -> qthread_t
+ * Adds the given thread to the list of threads pointed to by head 
+ * and returns the head.
+ */
+qthread_t add_thread_to_list(qthread_t head, qthread_t thread) {
+	if (thread == NULL)
+		return head;
+		
+	if (head == NULL) {
+		head = thread;
+	}
+	else {
+		// to insert the thread at the correct position according to 
+		// time.
+		qthread_t temp = head;
+		qthread_t prev = head;
+		while ((temp->next != NULL) && 
+		(temp->time_to_wake_up <= thread->time_to_wake_up)) {
+			prev = temp;
+			temp = temp->next;
+		}
+		if (prev == temp) {
+			// to insert as the head node
+			thread->next = head;
+			head = thread;
+		}
+		else if (temp->time_to_wake_up > thread->time_to_wake_up) {
+			thread->next = prev->next;
+			prev->next = thread;
+		}
+		else {
+			temp->next = thread;
+		}
+	}
+	return head;
+}
+
+/* 
+ * print_q : queue_t -> void
+ * Prints the given queue Q.
+ */
+void print_q(queue_t Q) {
+	if (Q == NULL) {
+		printf("\nQueue is empty!!!");
+	}
+	else {
+		qthread_t temp = Q->front;
+		printf("\nQueue is  -- ");
+		while (temp != Q->rear) {
+			printf("%d ", temp->time_to_wake_up);
+			temp = temp->next;
+		}
+		printf("%d \n", temp->time_to_wake_up);
+	}
+}
+
+void print_threads(qthread_t head) {
+	qthread_t temp = head;
+	printf("\nThreads in order are  -- ");
+	while (temp != NULL) {
+		printf("%d ", temp->time_to_wake_up);
+		temp = temp->next;
+	}
+	printf("\n");
+}
+
+

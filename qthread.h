@@ -16,6 +16,7 @@
  * to have to go here, because of some poor decision-making on
  * the part of the POSIX folks.
  */
+ 
 struct qthread_mutex {
     int place_holder;
 };
@@ -26,15 +27,9 @@ struct qthread_cond {
 };
 typedef struct qthread_cond qthread_cond_t;
 
-/* A "forward declaration" for the qthread structure itself,
- * which should be defined in qthread.c
- */
 struct qthread {
      int time_to_wake_up;
      struct qthread *next;
-
-
-    /* your code here */
 };
 typedef struct qthread* qthread_t;
 
@@ -78,6 +73,14 @@ int qthread_cond_destroy(qthread_cond_t *cond);
 int qthread_cond_wait(qthread_cond_t *cond, qthread_mutex_t *mutex);
 int qthread_cond_signal(qthread_cond_t *cond);
 int qthread_cond_broadcast(qthread_cond_t *cond);
+qthread_t get_new_node(int data);
+void print_threads(qthread_t head);
+void print_q(queue_t Q);
+qthread_t add_thread_to_list(qthread_t head, qthread_t thread);
+qthread_t dequeue(queue_t *queue_name);
+void enqueue(queue_t *queue_name, qthread_t new_node);
+
+
 
 /* POSIX replacement API. Not general, but enough to run a
  * multi-threaded webserver. 

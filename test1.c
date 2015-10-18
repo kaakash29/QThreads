@@ -80,6 +80,40 @@ void test2(void)
     printf("test 2 done\n");
 }
 
+/* 
+ * test : int -> void
+ * The test function to test functionality of 
+ * the list/queue operations.
+ */
+int test3() {
+	queue_t Q = NULL;
+	enqueue(&Q, get_new_node(2));
+	assert(Q != NULL);
+	enqueue(&Q, get_new_node(3));
+	enqueue(&Q, get_new_node(4));
+	enqueue(&Q, get_new_node(5));
+	qthread_t rem_data = NULL;
+	rem_data = dequeue(&Q);
+	rem_data = dequeue(&Q);
+	rem_data = dequeue(&Q);
+	rem_data = dequeue(&Q);
+	rem_data = dequeue(&Q);
+	assert(Q == NULL);
+	rem_data = dequeue(&Q);
+	rem_data = dequeue(&Q);
+	rem_data = dequeue(&Q);
+	assert(Q == NULL);
+	qthread_t head = NULL;
+	assert(head == NULL);
+	head = add_thread_to_list(head, get_new_node(5));
+	assert(head != NULL);
+	head = add_thread_to_list(head, get_new_node(2));
+	head = add_thread_to_list(head, get_new_node(4));
+	head = add_thread_to_list(head, get_new_node(1));
+	head = add_thread_to_list(head, get_new_node(7));
+	head = add_thread_to_list(head, get_new_node(7));
+}
+
 int main(int argc, char **argv)
 {
     /* Here are some suggested tests to implement. You can either run
@@ -90,8 +124,9 @@ int main(int argc, char **argv)
      * but it's a good start.
      */
 
-    test1();
-    test2();
+    //test1();
+    //test2();
+    test3(); // to check the queue and list functionality
     
     /* 3. condvar and sleep.
      * initialize a condvar and a mutex

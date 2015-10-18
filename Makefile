@@ -7,6 +7,7 @@ LIBS = libqthread.a
 CFLAGS = -g -I.
 QTH = qthread.o
 
+
 all: $(LIBS) $(EXES)
 
 clean:
