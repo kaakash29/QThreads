@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <sys/time.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 #include "qthread.h"
 
 /*
@@ -78,7 +79,9 @@ static double gettime(void)
  */
 struct qthread os_thread = {};
 struct qthread *current = &os_thread;
-
+queue_t RUNNABLE_Q = NULL;   // the queue of runnable threads
+int thread_id = 1;
+void* return_val = NULL;
 
 /* Beware - you cannot use do_switch to switch from a thread to
  * itself. If there are no other active threads (or after a timeout
@@ -91,7 +94,15 @@ struct qthread *current = &os_thread;
  */
 int qthread_yield(void)
 {
-    /* your code here */
+	qthread_t new_thread = NULL;
+	new_thread = dequeue(&RUNNABLE_Q);
+    if (new_thread != NULL) {
+		//register int sp asm ("sp");
+		//printf("%x", sp);
+		//void **old_address = &current->current_sp;
+		do_switch(current->current_sp, new_thread->current_sp);
+		printf("\nYielded thread: %d\n", new_thread->thread_id);
+	}
     return 0;
 }
 
@@ -110,10 +121,20 @@ int qthread_attr_init(qthread_attr_t *attr)
  */
 int qthread_attr_setdetachstate(qthread_attr_t *attr, int detachstate)
 {
-    /* your code here */
+    *attr = detachstate;
     return 0;
 }
 
+qthread_t get_new_thread(qthread_attr_t *attr) {
+	qthread_t new_thread = (qthread_t) malloc(sizeof(struct qthread));
+	new_thread->thread_id = thread_id++;
+	new_thread->thread_stack = NULL;
+    new_thread->current_sp = NULL;
+    new_thread->isDetached = (attr == NULL? 0 : *attr);
+	new_thread->time_to_wake_up = 0;
+	new_thread->next = NULL;
+	return new_thread;
+}
 
 /* a thread can exit by either returning from its main function or
  * calling qthread_exit(), so you should probably use a dummy start
@@ -126,7 +147,18 @@ int qthread_attr_setdetachstate(qthread_attr_t *attr, int detachstate)
 int qthread_create(qthread_t *thread, qthread_attr_t *attr,
                    qthread_func_ptr_t start, void *arg)
 {
-    /* your code here */
+    qthread_t th = get_new_thread(attr);
+    *thread = th;
+    int stack_size = (1024 * 1024);
+    void* buf = (void*) malloc(stack_size);
+	int* top_stack = buf + stack_size;
+    (*thread)->current_sp = setup_stack(top_stack, start, arg, 0);
+    (*thread)->thread_stack = buf;
+    enqueue(&RUNNABLE_Q, *thread);
+    printf("\nRUNNABLE Q = \n");
+    print_q(RUNNABLE_Q);
+    //do_switch(&current->current_sp, (*thread)->current_sp);
+    //qthread_yield();
     return 0;
 }
 
@@ -137,6 +169,8 @@ int qthread_create(qthread_t *thread, qthread_attr_t *attr,
  */
 void qthread_exit(void *val)
 {
+    return_val = val;
+    qthread_yield();
     /* your code here */
 }
 
@@ -268,6 +302,17 @@ ssize_t qthread_write(int sockfd, const void *buf, size_t len)
  */
 int qthread_join(qthread_t thread, void **retval)
 {
+    if ((thread == NULL) || (thread->isDetached == 1))
+		return -1;
+	//qthread_t new_thread = NULL;
+	//new_thread = dequeue(&RUNNABLE_Q);
+    //if (new_thread != NULL) {
+		//void **old_address = &current->current_sp;
+		//running_thread = new_thread;
+		//do_switch(&current->current_sp, thread->current_sp);
+		qthread_yield();
+		*retval = return_val;
+	//}
     return 0;
 }
 
@@ -278,7 +323,6 @@ qthread_t get_new_node(int data) {
 	new_node->next = NULL;
 	return new_node;
 }
-
 
 /* 
  * enqueue : queue_t *qthread_t -> void
@@ -369,10 +413,10 @@ void print_q(queue_t Q) {
 		qthread_t temp = Q->front;
 		printf("\nQueue is  -- ");
 		while (temp != Q->rear) {
-			printf("%d ", temp->time_to_wake_up);
+			printf("%d ", temp->thread_id);
 			temp = temp->next;
 		}
-		printf("%d \n", temp->time_to_wake_up);
+		printf("%d \n", temp->thread_id);
 	}
 }
 
@@ -380,7 +424,7 @@ void print_threads(qthread_t head) {
 	qthread_t temp = head;
 	printf("\nThreads in order are  -- ");
 	while (temp != NULL) {
-		printf("%d ", temp->time_to_wake_up);
+		printf("%d ", temp->thread_id);
 		temp = temp->next;
 	}
 	printf("\n");

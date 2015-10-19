@@ -28,6 +28,10 @@ struct qthread_cond {
 typedef struct qthread_cond qthread_cond_t;
 
 struct qthread {
+	 int thread_id;
+     void* thread_stack;
+     void* current_sp;
+     int isDetached;
      int time_to_wake_up;
      struct qthread *next;
 };

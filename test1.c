@@ -15,7 +15,19 @@
  * except return a value. (and possibly print something) Call
  * qthread_join() to wait for each of them.
  */
-void *f1(void *arg) { return arg; }
+void *f1(void *arg) { printf("\nHello\n"); //return arg; 
+	qthread_exit(arg); 
+}
+
+void test0(void)
+{
+    qthread_t t;
+    int i = 1, j = 1;
+    qthread_create(&t, NULL, f1, (void*)i);
+    qthread_join(t, (void**)&j);
+    assert(i == j);
+    printf("test 0 OK\n");
+}
 void test1(void)
 {
     qthread_t t[10];
@@ -123,9 +135,12 @@ int main(int argc, char **argv)
      * This may not be enough tests to fully debug your assignment,
      * but it's a good start.
      */
-
-    //test1();
+	qthread_t head;
+	int attr = 0;
+    //test0();
+    test1();
     //test2();
+    //qthread_create(&head, &attr, NULL, NULL);
     test3(); // to check the queue and list functionality
     
     /* 3. condvar and sleep.
