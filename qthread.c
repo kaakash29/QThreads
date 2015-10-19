@@ -13,6 +13,8 @@
 #include <sys/mman.h>
 #include "qthread.h"
 
+#define LOCK 1
+#define UNLOCK 0
 /*
  * do_switch is defined in do-switch.s, as the stack frame layout
  * changes with optimization level, making it difficult to do with
@@ -53,6 +55,8 @@ void *setup_stack(int *stack, void *func, void *arg1, void *arg2)
 
     return stack;
 }
+
+
 
 /* You'll need to do sub-second arithmetic on time. This is an easy
  * way to do it - it returns the current time as a floating point
@@ -174,15 +178,26 @@ void qthread_exit(void *val)
     /* your code here */
 }
 
+void print_mutex(qthread_mutex_t *mutex, char* msg) {
+	printf("\n%s\n",msg);
+	printf("\nmutex lock = %d\n", mutex->lock);
+	print_q(mutex->wait_q);
+}
+
 /* qthread_mutex_init/destroy - initialize (destroy) a mutex. Ignore
  * 'attr' - mutexes are non-recursive, non-debugging, and
  * non-any-other-POSIX-feature. 
  */
 int qthread_mutex_init(qthread_mutex_t *mutex, qthread_mutexattr_t *attr)
 {
-    /* your code here */
+	printf("\nqthread_mutex_init called\n");
+    mutex = (qthread_mutex_t *) malloc(sizeof(qthread_mutex_t));
+    mutex->lock = UNLOCK;
+    mutex->wait_q = NULL;
+    print_mutex(mutex, "thread_mutex_init");
     return 0;
 }
+
 int qthread_mutex_destroy(qthread_mutex_t *mutex)
 {
     /* your code here */
@@ -193,12 +208,30 @@ int qthread_mutex_destroy(qthread_mutex_t *mutex)
  */
 int qthread_mutex_lock(qthread_mutex_t *mutex)
 {
-    /* your code here */
+    if (mutex->lock == LOCK) {
+		printf("\nThread : %d will get queued\n", current->thread_id);
+		enqueue(&(mutex->wait_q), current);
+	}
+	else {
+		mutex->lock = LOCK;
+	}
+	print_mutex(mutex, "qthread_mutex_lock");
     return 0;
 }
 int qthread_mutex_unlock(qthread_mutex_t *mutex)
 {
-    /* your code here */
+	//print_mutex(mutex, "qthread_mutex_unlock start");
+	mutex->lock = UNLOCK;
+	if (mutex->wait_q != NULL) {
+		//print_mutex(mutex, "qthread_mutex_unlock before enqueue");
+		enqueue(&RUNNABLE_Q, mutex->wait_q->front);
+		//print_mutex(mutex, "qthread_mutex_unlock after enqueue");
+		RUNNABLE_Q->rear = mutex->wait_q->rear;
+		mutex->wait_q->front = NULL;
+		mutex->wait_q->rear = NULL;
+		mutex->wait_q = NULL;
+	}
+	print_mutex(mutex, "qthread_mutex_unlock");
     return 0;
 }
 
@@ -256,6 +289,7 @@ int qthread_cond_broadcast(qthread_cond_t *cond)
 int qthread_usleep(long int usecs)
 {
     /* your code here */
+    usleep(usecs);
     return 0;
 }
 

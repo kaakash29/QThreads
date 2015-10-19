@@ -58,18 +58,21 @@ void *f2(void *v)
 {
     qthread_mutex_lock(&m);
     t1rdy = 1;
+    printf("\nin f2\n");
     qthread_usleep(1000000);
     qthread_mutex_unlock(&m);
 
-    return 0;
+    qthread_exit(0); //return 0;
 }
 
 void *f3(void *v)
 {
     qthread_mutex_lock(&m);
-    printf("f3\n");
+    printf("\nin f3\n");
+    qthread_usleep(1000000);
     qthread_mutex_unlock(&m);
-    return 0;
+    
+    qthread_exit(0); //return 0; 
 }
     
 void test2(void)
@@ -79,8 +82,8 @@ void test2(void)
     
     qthread_mutex_init(&m, NULL);
     qthread_create(&t0, NULL, f2, NULL);
-    while (!t1rdy)
-        qthread_yield();
+    //while (!t1rdy)
+     //   qthread_yield();
     for (i = 0; i < 4; i++)
         qthread_create(&t[i], NULL, f3, NULL);
 
@@ -138,8 +141,8 @@ int main(int argc, char **argv)
 	qthread_t head;
 	int attr = 0;
     //test0();
-    test1();
-    //test2();
+    //test1();
+    test2();
     //qthread_create(&head, &attr, NULL, NULL);
     test3(); // to check the queue and list functionality
     

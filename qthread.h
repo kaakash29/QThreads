@@ -16,16 +16,6 @@
  * to have to go here, because of some poor decision-making on
  * the part of the POSIX folks.
  */
- 
-struct qthread_mutex {
-    int place_holder;
-};
-typedef struct qthread_mutex qthread_mutex_t;
-
-struct qthread_cond {
-    int place_holder;
-};
-typedef struct qthread_cond qthread_cond_t;
 
 struct qthread {
 	 int thread_id;
@@ -42,6 +32,17 @@ struct queue_list {
 	qthread_t rear;
 };
 typedef struct queue_list* queue_t;
+ 
+struct qthread_mutex {
+    int lock;
+    queue_t wait_q;
+};
+typedef struct qthread_mutex qthread_mutex_t;
+
+struct qthread_cond {
+    int place_holder;
+};
+typedef struct qthread_cond qthread_cond_t;
 
 /* function pointer w/ signature 'void *f(void*)'
  */
