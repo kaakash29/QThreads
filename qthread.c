@@ -107,6 +107,10 @@ void print_threads(qthread_t head, char* msg) {
 	printf("\n");
 }
 
+void dummy(void* (*func)(void *), void *arg1) {
+	void* retval = func(arg1);
+	qthread_exit(retval);
+}
 
 /* A good organization is to keep a pointer to the 'current'
  * (i.e. running) thread, and a list of 'active' threads (not
@@ -261,7 +265,7 @@ int qthread_create(qthread_t *thread, qthread_attr_t *attr,
     int stack_size = (1024 * 1024);
     void* buf = (void*) malloc(stack_size);
 	int* top_stack = buf + stack_size;
-    (*thread)->current_sp = setup_stack(top_stack, start, arg, 0);
+    (*thread)->current_sp = setup_stack(top_stack, dummy, start, arg);
     (*thread)->thread_stack = buf;
     enqueue(&RUNNABLE_Q, *thread);
     print_q(RUNNABLE_Q, "RUNNABLE Q");

@@ -15,7 +15,8 @@
  * qthread_join() to wait for each of them.
  */
 void *f1(void *arg) { printf("\nHello\n"); //return arg; 
-	qthread_exit(arg); 
+	//qthread_exit(arg); 
+	return arg;
 }
 
 void test0(void)
@@ -71,7 +72,7 @@ void *f3(void *v)
     printf("\nin f3\n");
     qthread_usleep(100000);
     qthread_mutex_unlock(&m);
-    qthread_exit(0); //return 0; 
+    return 0; 
 }
     
 void test2(void)
