@@ -61,7 +61,8 @@ void *f2(void *v)
     qthread_usleep(1000);
     qthread_mutex_unlock(&m);
 
-    qthread_exit(0); //return 0;
+    qthread_exit(0); 
+    //return 0;
 }
 
 void *f3(void *v)
@@ -80,13 +81,13 @@ void test2(void)
     
     qthread_mutex_init(&m, NULL);
     qthread_create(&t0, NULL, f2, NULL);
-    //while (!t1rdy)
-    //  qthread_yield();
+    while (!t1rdy)
+      qthread_yield();
     for (i = 0; i < 4; i++)
         qthread_create(&t[i], NULL, f3, NULL);
 
     void *val;
-    //qthread_join(t0, &val);
+    qthread_join(t0, &val);
     for (i = 0; i < 4; i++)
         qthread_join(t[i], &val);
     
@@ -140,7 +141,7 @@ int main(int argc, char **argv)
 	int attr = 0;
     test0();
     test1();
-    //test2();
+    test2();
     //qthread_create(&head, &attr, NULL, NULL);
     test3(); // to check the queue and list functionality
     
