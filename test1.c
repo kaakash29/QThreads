@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <assert.h>
-
 #include "qthread.h"
 
 /* 1. create and join. Create N threads, which don't do anything
@@ -59,7 +58,7 @@ void *f2(void *v)
     qthread_mutex_lock(&m);
     t1rdy = 1;
     printf("\nin f2\n");
-    qthread_usleep(1000000);
+    qthread_usleep(1000);
     qthread_mutex_unlock(&m);
 
     qthread_exit(0); //return 0;
@@ -69,9 +68,8 @@ void *f3(void *v)
 {
     qthread_mutex_lock(&m);
     printf("\nin f3\n");
-    qthread_usleep(1000000);
+    qthread_usleep(100000);
     qthread_mutex_unlock(&m);
-    
     qthread_exit(0); //return 0; 
 }
     
@@ -83,12 +81,12 @@ void test2(void)
     qthread_mutex_init(&m, NULL);
     qthread_create(&t0, NULL, f2, NULL);
     //while (!t1rdy)
-     //   qthread_yield();
+    //  qthread_yield();
     for (i = 0; i < 4; i++)
         qthread_create(&t[i], NULL, f3, NULL);
 
     void *val;
-    qthread_join(t0, &val);
+    //qthread_join(t0, &val);
     for (i = 0; i < 4; i++)
         qthread_join(t[i], &val);
     
@@ -140,9 +138,9 @@ int main(int argc, char **argv)
      */
 	qthread_t head;
 	int attr = 0;
-    //test0();
-    //test1();
-    test2();
+    test0();
+    test1();
+    //test2();
     //qthread_create(&head, &attr, NULL, NULL);
     test3(); // to check the queue and list functionality
     

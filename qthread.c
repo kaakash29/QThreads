@@ -70,6 +70,43 @@ static double gettime(void)
     return tv.tv_sec + tv.tv_usec/1.0e6;
 }
 
+/* 
+ * print_q : queue_t -> void
+ * Prints the given queue Q.
+ */
+void print_q(queue_t Q, char* msg) {
+	if (Q == NULL) {
+		printf("\n%s is empty!!!", msg);
+	}
+	else {
+		qthread_t temp = Q->front;
+		printf("\n%s ", msg);
+		while (temp != Q->rear) {
+			printf("%d ", temp->thread_id);
+			temp = temp->next;
+		}
+		printf("%d \n", temp->thread_id);
+	}
+}
+
+/*
+ * print_threads : qthread_t char* -> void
+ * Prints the msg and threads in the list pointed to by head.
+ */ 
+void print_threads(qthread_t head, char* msg) {
+	qthread_t temp = head;
+	if (head == NULL) {
+		printf("\n%s EMPTY!!", msg);
+		return;
+	}
+	printf("\n%s : Threads in order are  -- ", msg);
+	while (temp != NULL) {
+		printf("%d--%f ", temp->thread_id, temp->time_to_wake_up);
+		temp = temp->next;
+	}
+	printf("\n");
+}
+
 
 /* A good organization is to keep a pointer to the 'current'
  * (i.e. running) thread, and a list of 'active' threads (not
@@ -86,6 +123,8 @@ struct qthread *current = &os_thread;
 queue_t RUNNABLE_Q = NULL;   // the queue of runnable threads
 int thread_id = 1;
 void* return_val = NULL;
+qthread_t sleeping_threads = NULL;  // to keep track of the threads 
+	// which are sleeping now and need to awake up after some time
 
 /* Beware - you cannot use do_switch to switch from a thread to
  * itself. If there are no other active threads (or after a timeout
@@ -94,19 +133,82 @@ void* return_val = NULL;
  * stack pointer)
  */
 
+
+ 
+void context_switch(void) {
+	qthread_t new_thread = NULL, old_current = NULL;
+	printf("\n ----- context_switch called -------- \n");
+	// to check the sleeping threads list if any of 
+	// them are ready to put in runnable queue
+	
+	// switching to the new thread
+	print_q(RUNNABLE_Q, "Runnable Q : ");
+	/*while (new_thread == NULL) {
+		new_thread = dequeue(&RUNNABLE_Q);
+		if (new_thread != NULL) {
+			if (new_thread->finished == 1) {
+				if (new_thread->to_join != NULL) {
+					enqueue(&RUNNABLE_Q, new_thread->to_join);
+					
+				}
+				else {
+					enqueue(&RUNNABLE_Q, new_thread);
+					//qthread_yield();
+				}
+				printf("\nCurrent : %d --- Yielded : %d ** COMPLETED **\n", 
+				current->thread_id, new_thread->thread_id);
+				print_q(RUNNABLE_Q, "Runnable Q : ");
+				current = new_thread;
+				new_thread = NULL;
+			}
+			/*else if (new_thread == current) {
+				enqueue(&RUNNABLE_Q, new_thread);
+				printf("\nCurrent : %d --- Yielded : %d\n", 
+				current->thread_id, new_thread->thread_id);
+				new_thread = NULL;
+			}*/
+			
+	/*	}
+		
+		
+	}*/
+	new_thread = dequeue(&RUNNABLE_Q);
+    if (new_thread != NULL) {
+		printf("\nCurrent thread : %d --- to switch thread: %d\n", 
+		current->thread_id, new_thread->thread_id);
+		old_current = current;
+		current = new_thread;
+		do_switch(&old_current->current_sp, new_thread->current_sp);
+	}
+    //return 0;
+}
+
 /* qthread_yield - yield to the next runnable thread.
  */
 int qthread_yield(void)
 {
-	qthread_t new_thread = NULL;
+	/*qthread_t new_thread = NULL, old_current = NULL;
+	printf("\n ----- yield called -------- \n");
+	// to check the sleeping threads list if any of 
+	// them are ready to put in runnable queue
+	print_threads(sleeping_threads, "Sleeping threads Original ");
+	printf("\nCurrent time = %f", gettime());
+	sleeping_threads = remove_threads_from_list(sleeping_threads);
+	print_threads(sleeping_threads, "Sleeping threads Final ");
+	// switching to the new thread
+	print_q(RUNNABLE_Q, "Runnable Q : ");
 	new_thread = dequeue(&RUNNABLE_Q);
     if (new_thread != NULL) {
-		//register int sp asm ("sp");
-		//printf("%x", sp);
-		//void **old_address = &current->current_sp;
-		do_switch(current->current_sp, new_thread->current_sp);
-		printf("\nYielded thread: %d\n", new_thread->thread_id);
-	}
+		printf("\nCurrent thread : %d --- Yielded thread: %d\n", 
+		current->thread_id, new_thread->thread_id);
+		old_current = current;
+		current = new_thread;
+		do_switch(&old_current->current_sp, new_thread->current_sp);
+	}*/
+	
+	
+	enqueue(&RUNNABLE_Q, current);
+	context_switch();
     return 0;
 }
 
@@ -130,14 +232,17 @@ int qthread_attr_setdetachstate(qthread_attr_t *attr, int detachstate)
 }
 
 qthread_t get_new_thread(qthread_attr_t *attr) {
-	qthread_t new_thread = (qthread_t) malloc(sizeof(struct qthread));
-	new_thread->thread_id = thread_id++;
-	new_thread->thread_stack = NULL;
+    qthread_t new_thread = (qthread_t) malloc(sizeof(struct qthread));
+    new_thread->thread_id = thread_id++;
+    new_thread->thread_stack = NULL;
     new_thread->current_sp = NULL;
     new_thread->isDetached = (attr == NULL? 0 : *attr);
-	new_thread->time_to_wake_up = 0;
-	new_thread->next = NULL;
-	return new_thread;
+    new_thread->time_to_wake_up = 0;
+    new_thread->return_value = (void*) 0;
+    new_thread->to_join = NULL;
+    new_thread->next = NULL;
+    new_thread->finished = 0;
+    return new_thread;
 }
 
 /* a thread can exit by either returning from its main function or
@@ -159,12 +264,13 @@ int qthread_create(qthread_t *thread, qthread_attr_t *attr,
     (*thread)->current_sp = setup_stack(top_stack, start, arg, 0);
     (*thread)->thread_stack = buf;
     enqueue(&RUNNABLE_Q, *thread);
-    printf("\nRUNNABLE Q = \n");
-    print_q(RUNNABLE_Q);
+    print_q(RUNNABLE_Q, "RUNNABLE Q");
     //do_switch(&current->current_sp, (*thread)->current_sp);
     //qthread_yield();
     return 0;
 }
+
+
 
 /* qthread_exit - sort of like qthread_yield, except we never
  * return. If the thread is joinable you need to save 'val' for a
@@ -173,15 +279,24 @@ int qthread_create(qthread_t *thread, qthread_attr_t *attr,
  */
 void qthread_exit(void *val)
 {
-    return_val = val;
-    qthread_yield();
+    current->return_value = val;
+    current->finished = 1;
+    //return_val = val;
+    while (current->to_join == NULL) {
+		qthread_yield();
+	}
+	
+		enqueue(&RUNNABLE_Q, current->to_join);
+		current->to_join = NULL;
+		context_switch();
+	
     /* your code here */
 }
 
 void print_mutex(qthread_mutex_t *mutex, char* msg) {
-	printf("\n%s\n",msg);
-	printf("\nmutex lock = %d\n", mutex->lock);
-	print_q(mutex->wait_q);
+	printf("\n%s, ",msg);
+	printf("mutex lock = %d\n", mutex->lock);
+	print_q(mutex->wait_q, "mutex wait_q");
 }
 
 /* qthread_mutex_init/destroy - initialize (destroy) a mutex. Ignore
@@ -208,30 +323,40 @@ int qthread_mutex_destroy(qthread_mutex_t *mutex)
  */
 int qthread_mutex_lock(qthread_mutex_t *mutex)
 {
+	print_mutex(mutex, "qthread_mutex_lock start : ");
     if (mutex->lock == LOCK) {
-		printf("\nThread : %d will get queued\n", current->thread_id);
+		printf("\nThread : %d will get queued", current->thread_id);
 		enqueue(&(mutex->wait_q), current);
+		print_q(mutex->wait_q, "mutex->wait_q : ");
+		qthread_yield();
 	}
 	else {
+		printf("\nThread %d : Lock obtained !!\n", current->thread_id);
 		mutex->lock = LOCK;
 	}
-	print_mutex(mutex, "qthread_mutex_lock");
+	print_mutex(mutex, "qthread_mutex_lock end : ");
     return 0;
 }
 int qthread_mutex_unlock(qthread_mutex_t *mutex)
 {
+	print_mutex(mutex, "qthread_mutex_unlock start : ");
 	//print_mutex(mutex, "qthread_mutex_unlock start");
 	mutex->lock = UNLOCK;
-	if (mutex->wait_q != NULL) {
+	while (mutex->wait_q != NULL) {
 		//print_mutex(mutex, "qthread_mutex_unlock before enqueue");
-		enqueue(&RUNNABLE_Q, mutex->wait_q->front);
+		
+		enqueue(&RUNNABLE_Q, dequeue(&mutex->wait_q));
+		//while (mutex->wait_q != NULL) {
 		//print_mutex(mutex, "qthread_mutex_unlock after enqueue");
-		RUNNABLE_Q->rear = mutex->wait_q->rear;
-		mutex->wait_q->front = NULL;
-		mutex->wait_q->rear = NULL;
-		mutex->wait_q = NULL;
+		//RUNNABLE_Q->rear = mutex->wait_q->rear;
+		//mutex->wait_q->front = NULL;
+		//mutex->wait_q->rear = NULL;
+		//mutex->wait_q = NULL;
+		//	dequeue();
+		//}
 	}
-	print_mutex(mutex, "qthread_mutex_unlock");
+	print_mutex(mutex, "qthread_mutex_unlock end : ");
+	print_q(RUNNABLE_Q, "RUNNABLE Q : ");
     return 0;
 }
 
@@ -288,8 +413,9 @@ int qthread_cond_broadcast(qthread_cond_t *cond)
  */
 int qthread_usleep(long int usecs)
 {
-    /* your code here */
-    usleep(usecs);
+	current->time_to_wake_up = gettime() + (usecs/1.0e6);
+    sleeping_threads = add_thread_to_list(sleeping_threads, current);
+    qthread_yield();
     return 0;
 }
 
@@ -336,6 +462,7 @@ ssize_t qthread_write(int sockfd, const void *buf, size_t len)
  */
 int qthread_join(qthread_t thread, void **retval)
 {
+	printf("\n---- join invoked ---\n");
     if ((thread == NULL) || (thread->isDetached == 1))
 		return -1;
 	//qthread_t new_thread = NULL;
@@ -344,8 +471,12 @@ int qthread_join(qthread_t thread, void **retval)
 		//void **old_address = &current->current_sp;
 		//running_thread = new_thread;
 		//do_switch(&current->current_sp, thread->current_sp);
-		qthread_yield();
-		*retval = return_val;
+		
+	thread->to_join = current;
+	context_switch();
+	*retval = thread->return_value;
+	//	qthread_yield();
+	//	*retval = return_val;
 	//}
     return 0;
 }
@@ -414,7 +545,7 @@ qthread_t add_thread_to_list(qthread_t head, qthread_t thread) {
 		// time.
 		qthread_t temp = head;
 		qthread_t prev = head;
-		while ((temp->next != NULL) && 
+		while ((temp != NULL) && 
 		(temp->time_to_wake_up <= thread->time_to_wake_up)) {
 			prev = temp;
 			temp = temp->next;
@@ -423,6 +554,9 @@ qthread_t add_thread_to_list(qthread_t head, qthread_t thread) {
 			// to insert as the head node
 			thread->next = head;
 			head = thread;
+		}
+		else if (temp == NULL) {
+			prev->next = thread;
 		}
 		else if (temp->time_to_wake_up > thread->time_to_wake_up) {
 			thread->next = prev->next;
@@ -435,33 +569,30 @@ qthread_t add_thread_to_list(qthread_t head, qthread_t thread) {
 	return head;
 }
 
-/* 
- * print_q : queue_t -> void
- * Prints the given queue Q.
+/* remove_threads_from_list
+ * Removes threads which are ready to run andputs them in the 
+ * Runnable Queue
  */
-void print_q(queue_t Q) {
-	if (Q == NULL) {
-		printf("\nQueue is empty!!!");
-	}
-	else {
-		qthread_t temp = Q->front;
-		printf("\nQueue is  -- ");
-		while (temp != Q->rear) {
-			printf("%d ", temp->thread_id);
-			temp = temp->next;
-		}
-		printf("%d \n", temp->thread_id);
-	}
-}
-
-void print_threads(qthread_t head) {
+qthread_t remove_threads_from_list(qthread_t head) {
 	qthread_t temp = head;
-	printf("\nThreads in order are  -- ");
-	while (temp != NULL) {
-		printf("%d ", temp->thread_id);
+	qthread_t prev = head;
+	while ((temp != NULL) && (temp->time_to_wake_up <= gettime())) {
+		// add to runnable queue
+		enqueue(&RUNNABLE_Q, temp);
+		
+		// remove this thread from this list
+		if (prev == temp) {
+			// the first node
+			head = temp->next;
+		}
+		else {
+			// this is not the first node
+			prev->next = temp->next;
+		}
+		prev = temp;
 		temp = temp->next;
 	}
-	printf("\n");
+	return head;
 }
 
 

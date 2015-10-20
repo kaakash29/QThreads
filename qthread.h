@@ -19,11 +19,14 @@
 
 struct qthread {
 	 int thread_id;
+	 int finished;
      void* thread_stack;
      void* current_sp;
      int isDetached;
-     int time_to_wake_up;
-     struct qthread *next;
+     double time_to_wake_up;
+     void* return_value;
+     struct qthread* to_join;
+     struct qthread* next;
 };
 typedef struct qthread* qthread_t;
 
@@ -79,12 +82,12 @@ int qthread_cond_wait(qthread_cond_t *cond, qthread_mutex_t *mutex);
 int qthread_cond_signal(qthread_cond_t *cond);
 int qthread_cond_broadcast(qthread_cond_t *cond);
 qthread_t get_new_node(int data);
-void print_threads(qthread_t head);
-void print_q(queue_t Q);
+void print_threads(qthread_t head, char* msg);
+void print_q(queue_t Q, char* msg);
 qthread_t add_thread_to_list(qthread_t head, qthread_t thread);
 qthread_t dequeue(queue_t *queue_name);
 void enqueue(queue_t *queue_name, qthread_t new_node);
-
+qthread_t remove_threads_from_list(qthread_t head);
 
 
 /* POSIX replacement API. Not general, but enough to run a
