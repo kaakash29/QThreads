@@ -17,33 +17,20 @@
  * the part of the POSIX folks.
  */
 
-struct qthread {
-	 int thread_id;
-	 int finished;
-	 int sleeping;
-	 int lock_queued;
-     void* thread_stack;
-     void* current_sp;
-     int isDetached;
-     double time_to_wake_up;
-     void* return_value;
-     struct qthread* to_join;
-     struct qthread* next;
-};
+struct qthread;
 typedef struct qthread* qthread_t;
 
-struct queue_list {
-	qthread_t front;
-	qthread_t rear;
-};
+struct queue_list;
 typedef struct queue_list* queue_t;
- 
+
+/* the mutex structure */ 
 struct qthread_mutex {
     int lock;
     queue_t wait_q;
 };
 typedef struct qthread_mutex qthread_mutex_t;
 
+/* the cond structure */
 struct qthread_cond {
     int place_holder;
 };
@@ -77,19 +64,12 @@ int qthread_mutex_init(qthread_mutex_t *mutex, qthread_mutexattr_t *attr);
 int qthread_mutex_destroy(qthread_mutex_t *mutex);
 int qthread_mutex_lock(qthread_mutex_t *mutex);
 int qthread_mutex_unlock(qthread_mutex_t *mutex);
-
 int qthread_cond_init(qthread_cond_t *cond, qthread_condattr_t *attr);
 int qthread_cond_destroy(qthread_cond_t *cond);
 int qthread_cond_wait(qthread_cond_t *cond, qthread_mutex_t *mutex);
 int qthread_cond_signal(qthread_cond_t *cond);
 int qthread_cond_broadcast(qthread_cond_t *cond);
-qthread_t get_new_node(int data);
-void print_threads(qthread_t head, char* msg);
-void print_q(queue_t Q, char* msg);
-qthread_t add_thread_to_list(qthread_t head, qthread_t thread);
-qthread_t dequeue(queue_t *queue_name);
-void enqueue(queue_t *queue_name, qthread_t new_node);
-qthread_t remove_threads_from_list(qthread_t head);
+
 
 
 /* POSIX replacement API. Not general, but enough to run a

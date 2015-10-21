@@ -22,6 +22,38 @@
  */
 extern void do_switch(void **location_for_old_sp, void *new_value);
 
+struct qthread {
+	 int thread_id;  /* to store the id of the thread */
+	 int finished;   /* to indicate whether the thread has 
+					  * finished executing */
+	 int sleeping;   /* to indicate whether the thread is sleeping */
+	 int lock_queued;/* to indicate whether the thread is queued in 
+					  *	some lock */
+     void* thread_stack; /* the pointer to the thread stack */
+     void* current_sp; /* the pointer to the sp of thread stack */
+     int isDetached;   /* to indicate a detached thread */
+     double time_to_wake_up;  /* to indicate the time to wake up if 
+							   * sleeping */
+     void* return_value;  /* to save the return value of the thread */
+     struct qthread* to_join; /* to save the pointer of the thread 
+                               * to which this thread must join to */
+     struct qthread* next; /* to store a pointer to the next thread 
+                            * in a queue or a list */
+};
+
+/* A queue structure to save the front and 
+ * rear of a queue of threads */
+struct queue_list {
+	qthread_t front;
+	qthread_t rear;
+};
+
+/* Forward declarations */
+qthread_t add_thread_to_list(qthread_t head, qthread_t thread);
+qthread_t dequeue(queue_t *queue_name);
+void enqueue(queue_t *queue_name, qthread_t new_node);
+qthread_t remove_threads_from_list(qthread_t head);
+
 /*
  * setup_stack(stack, function, arg1, arg2) - sets up a stack so that
  * switching to it from 'do_switch' will call 'function' with arguments
@@ -136,18 +168,14 @@ qthread_t sleeping_threads = NULL;  // to keep track of the threads
  * stack pointer)
  */
 
-
- 
 void context_switch(void) {
 	qthread_t new_thread = NULL, old_current = NULL;
 	printf("\n ----- context_switch called -------- \n");
-	// to check the sleeping threads list if any of 
-	// them are ready to put in runnable queue
-	
-	// switching to the new thread
 	while ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL)) {
 		print_threads(sleeping_threads, "Sleeping threads Original ");
 		printf("\nCurrent time = %f", gettime());
+		// to check the sleeping threads list if any of 
+		// them are ready to put in runnable queue
 		sleeping_threads = remove_threads_from_list(sleeping_threads);
 		print_threads(sleeping_threads, "Sleeping threads Final ");
 		print_q(RUNNABLE_Q, "Runnable Q : ");
@@ -163,7 +191,6 @@ void context_switch(void) {
 				break;
 			}
 		}
-		
 	}
 }
 
@@ -531,6 +558,7 @@ qthread_t remove_threads_from_list(qthread_t head) {
 	while ((temp != NULL) && (temp->time_to_wake_up <= gettime())) {
 		// add to runnable queue
 		temp->sleeping = 0;
+		temp->time_to_wake_up = 0;
 		enqueue(&RUNNABLE_Q, temp);
 		
 		// remove this thread from this list
@@ -549,3 +577,36 @@ qthread_t remove_threads_from_list(qthread_t head) {
 }
 
 
+/* 
+ * test_for_list_operations : int -> void
+ * The test function to test functionality of 
+ * the list/queue operations.
+ */
+int test_for_list_operations() {
+	queue_t Q = NULL;
+	enqueue(&Q, get_new_node(2));
+	assert(Q != NULL);
+	enqueue(&Q, get_new_node(3));
+	enqueue(&Q, get_new_node(4));
+	enqueue(&Q, get_new_node(5));
+	qthread_t rem_data = NULL;
+	rem_data = dequeue(&Q);
+	rem_data = dequeue(&Q);
+	rem_data = dequeue(&Q);
+	rem_data = dequeue(&Q);
+	rem_data = dequeue(&Q);
+	assert(Q == NULL);
+	rem_data = dequeue(&Q);
+	rem_data = dequeue(&Q);
+	rem_data = dequeue(&Q);
+	assert(Q == NULL);
+	qthread_t head = NULL;
+	assert(head == NULL);
+	head = add_thread_to_list(head, get_new_node(5));
+	assert(head != NULL);
+	head = add_thread_to_list(head, get_new_node(2));
+	head = add_thread_to_list(head, get_new_node(4));
+	head = add_thread_to_list(head, get_new_node(1));
+	head = add_thread_to_list(head, get_new_node(7));
+	head = add_thread_to_list(head, get_new_node(7));
+}
