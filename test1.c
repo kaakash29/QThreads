@@ -26,7 +26,7 @@ void test0(void)
     qthread_create(&t, NULL, f1, (void*)i);
     qthread_join(t, (void**)&j);
     assert(i == j);
-    printf("test 0 OK\n");
+    printf("\ntest 0 done\n");
 }
 void test1(void)
 {
@@ -38,7 +38,7 @@ void test1(void)
         qthread_join(t[i], (void**)&j);
         assert(i == j);
     }
-    printf("test 1 OK\n");
+    printf("\ntest 1 done\n");
 }
 
 /* 2. mutex and sleep.
@@ -59,7 +59,7 @@ void *f2(void *v)
     qthread_mutex_lock(&m);
     t1rdy = 1;
     printf("\nin f2\n");
-    qthread_usleep(1000);
+    qthread_usleep(1000000);
     qthread_mutex_unlock(&m);
 
     qthread_exit(0); 
@@ -70,7 +70,7 @@ void *f3(void *v)
 {
     qthread_mutex_lock(&m);
     printf("\nin f3\n");
-    qthread_usleep(100000);
+    qthread_usleep(1000);
     qthread_mutex_unlock(&m);
     return 0; 
 }
@@ -96,7 +96,7 @@ void test2(void)
 }
 
 /* 
- * test : int -> void
+ * test3 : int -> void
  * The test function to test functionality of 
  * the list/queue operations.
  */
@@ -127,6 +127,86 @@ int test3() {
 	head = add_thread_to_list(head, get_new_node(1));
 	head = add_thread_to_list(head, get_new_node(7));
 	head = add_thread_to_list(head, get_new_node(7));
+	printf("\nTest 3 done\n");
+}
+
+/* 
+ * test4 : int -> void
+ * The test function to test functionality of 
+ * the list/queue operations.
+ */
+
+int counter = 0;
+qthread_mutex_t lock;
+int num2 = 0;
+
+void* execute(void* num) {
+	printf("\nThe number is: %d", (int) num);
+	num2 ++;
+	qthread_exit(num);
+	//return num;
+}
+
+void test4() {
+	qthread_t th1 = NULL, th2 = NULL;
+	void* arg = (void*) 10;
+	qthread_create(&th1, NULL, (execute), arg);
+	void* ret = 0;
+	
+	
+	arg = (void*) 40;
+	qthread_create(&th2, NULL, (execute), arg);
+	printf("\nnum2 before usleep = %d\n", num2);
+	qthread_usleep(100);
+	printf("\nnum2 after usleep = %d\n", num2);
+	qthread_join(th2, &ret);
+	printf("\n 1. Now in main : received return value = %d\n", (int) ret);
+	qthread_join(th1, &ret);
+	printf("\n 2. Now in main : received return value = %d\n", (int) ret);
+	printf("\nTest 4 done\n");
+}
+
+/* 
+ * test5 : int -> void
+ * The test function to test functionality of 
+ * the list/queue operations.
+ */
+
+void* counters_th1() {
+	int i;
+	qthread_usleep(100);
+	qthread_mutex_lock(&lock);
+	for (i = 0; i < 200000000; i++) {
+		counter ++;
+	}
+	printf("\nCounter is %d\n", counter);
+	qthread_mutex_unlock(&lock);
+	return (void*) counter;
+}
+
+void* counters_th2() {
+	int i;
+	qthread_mutex_lock(&lock);
+	for (i = 0; i < 200000000; i++) {
+		counter ++;
+	}
+	printf("\nCounter is %d\n", counter);
+	qthread_mutex_unlock(&lock);
+	return (void*) counter;
+}
+
+
+ 
+void test5() {
+	qthread_t th1 = NULL, th2 = NULL;
+	qthread_mutex_init(&lock, NULL);
+	qthread_create(&th1, NULL, counters_th1, NULL);
+	qthread_create(&th2, NULL, counters_th2, NULL);
+	
+	void* retval;
+	qthread_join(th1, &retval);
+	qthread_join(th2, &retval);
+	printf("\nTest 5 done\n");
 }
 
 int main(int argc, char **argv)
@@ -145,6 +225,8 @@ int main(int argc, char **argv)
     test2();
     //qthread_create(&head, &attr, NULL, NULL);
     test3(); // to check the queue and list functionality
+    test4();
+    test5();
     
     /* 3. condvar and sleep.
      * initialize a condvar and a mutex

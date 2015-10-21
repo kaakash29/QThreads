@@ -20,6 +20,8 @@
 struct qthread {
 	 int thread_id;
 	 int finished;
+	 int sleeping;
+	 int lock_queued;
      void* thread_stack;
      void* current_sp;
      int isDetached;
