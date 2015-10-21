@@ -2,7 +2,7 @@
 # qthreads Makefile
 #
 
-EXES = test1 philosopher server
+EXES = test1 philosopher server test2
 LIBS = libqthread.a 
 CFLAGS = -g -I.
 QTH = qthread.o
@@ -18,6 +18,9 @@ libqthread.a: $(QTH) do-switch.o
 
 test1: test1.o libqthread.a
 	gcc -g test1.o -o test1 -L. -lqthread 
+
+test2: test2.o libqthread.a
+	gcc -g test2.o -o test2 -L. -lqthread 
 
 philosopher: philosopher.o libqthread.a
 	gcc -g philosopher.o -o philosopher -L. -lqthread -lm
