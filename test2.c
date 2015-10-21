@@ -12,6 +12,8 @@
 #include <fcntl.h>
 #include <string.h>
 
+#define SIZE 30
+
 /* 0. create and join. Create 1 thread, which don't do anything
  * except return a value.and possibly print something Call
  * qthread_join() to wait for it.
@@ -418,6 +420,76 @@ void test_read_write(void) {
   qthread_join(r, &output);
   qthread_join(w, &output);
 }
+
+/* 
+ * test17 : producer consumer problem
+ */
+
+char buffer[SIZE];
+int count = 0, head = 0, tail = 0;
+qthread_mutex_t l;
+qthread_cond_t notEmpty;
+qthread_cond_t notFull;
+
+void* put() {
+	int produce = 0;
+	while(produce++ < 20) {
+		qthread_mutex_lock(&l);
+		while (count == SIZE) {
+			qthread_cond_wait(&notFull, &l);
+		}
+		count++;
+		printf("\n +++ Produced an item +++ \n");
+		buffer[head] = produce;
+		head++;
+		if (head == SIZE) {
+			head = 0;
+		}
+		qthread_cond_signal(&notEmpty);
+		qthread_mutex_unlock(&l);
+		qthread_usleep(100000);
+	}
+}
+
+void* get() {
+    int c;
+    qthread_mutex_lock(&l);
+    while (count == 0) {
+        qthread_cond_wait(&notEmpty, &l);
+    }
+    count--;
+    c = buffer[tail];
+    printf("\n ---Consumed an item ----\n");
+    tail++;
+    if (tail == SIZE) {
+        tail = 0;
+    }
+    qthread_cond_signal(&notFull);
+    qthread_mutex_unlock(&l);
+    return (void*) c;
+}
+
+void producer_consumer() {
+	qthread_t producer;
+	qthread_t consumers[20];
+	void* retval;
+	int i = 0;
+	
+	qthread_mutex_init(&l, NULL);
+	qthread_cond_init(&notEmpty, NULL);
+	qthread_cond_init(&notFull, NULL);
+	
+		qthread_create(&producer, NULL, put, NULL);
+	for (i = 0; i < 20; i++)
+		qthread_create(&consumers[i], NULL, get, NULL);
+		
+		qthread_join(producer, &retval);
+		
+	for (i = 0; i < 20; i++) {
+		qthread_join(consumers[i], &retval);
+		printf("\n Return from consumer = %d\n", (int) retval);
+	}
+}
 //----
 
 /* 3. condvar and sleep.
@@ -442,9 +514,9 @@ int main(int argc, char **argv)
     test0(); printf("\ntest0 Done !!!");fflush(stdout);
     test1(); printf("\ntest1 Done !!!");fflush(stdout);
     test2(); printf("\ntest2 Done !!!");fflush(stdout);
-    //test3(); printf("\ntest3 Done !!!");fflush(stdout);
+    //leave commented //test3(); printf("\ntest3 Done !!!");fflush(stdout); 
     test4(); printf("\ntest4 Done !!!");fflush(stdout);
-    //test5(); printf("test5 Done !!!");fflush(stdout);
+    //leave commented //test5(); printf("test5 Done !!!");fflush(stdout);
     test6(); printf("\ntest6 Done !!!");fflush(stdout);
     test7(); printf("\ntest7 Done !!!");fflush(stdout);
     test8(); printf("\ntest8 Done !!!");fflush(stdout);
@@ -453,13 +525,13 @@ int main(int argc, char **argv)
     
     test_detach(); printf("\ntest_detach Done !!!");fflush(stdout);
 	test_join_zombie(); printf("\ntest_join_zombie Done !!!");fflush(stdout);
-    //test_sleep_main(); printf("test_sleep_main Done !!!");fflush(stdout);
+    //leave commented //test_sleep_main(); printf("test_sleep_main Done !!!");fflush(stdout);
     test_sleep_thread(); printf("\ntest_sleep_thread Done !!!");fflush(stdout);
     test_sleep_mutex_detached(); printf("\ntest_sleep_mutex_detached Done !!!");fflush(stdout);
     test_read(); printf("\ntest_read Done !!!");fflush(stdout);
-    //test_read_write(); printf("\ntest_read_write Done !!!");fflush(stdout);
-   
-    
+    //leave commented //test_read_write(); printf("\ntest_read_write Done !!!");fflush(stdout);
+    producer_consumer(); printf("\nproducer_consumer Done !!!");fflush(stdout);
+        
     printf("\n\n All tests Done !! No crashes encountered !! \n\n");
     return 0;
 }

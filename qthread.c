@@ -114,10 +114,10 @@ void print_q(queue_t Q, char* msg) {
 		qthread_t temp = Q->front;
 		printf("\n%s ", msg);
 		while (temp != Q->rear) {
-			printf("%d ", temp->thread_id);
+			printf("%d--%d", temp->thread_id, temp->lock_queued);
 			temp = temp->next;
 		}
-		printf("%d \n", temp->thread_id);
+		printf("%d--%d", temp->thread_id, temp->lock_queued);
 	}
 }
 
@@ -171,14 +171,15 @@ qthread_t sleeping_threads = NULL;  // to keep track of the threads
 void context_switch(void) {
 	qthread_t new_thread = NULL, old_current = NULL;
 	printf("\n ----- context_switch called -------- \n");
+	print_q(RUNNABLE_Q, "Runnable Q : ");
 	while ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL)) {
-		print_threads(sleeping_threads, "Sleeping threads Original ");
-		printf("\nCurrent time = %f", gettime());
+		//print_threads(sleeping_threads, "Sleeping threads Original ");
+		//printf("\nCurrent time = %f", gettime());
 		// to check the sleeping threads list if any of 
 		// them are ready to put in runnable queue
 		sleeping_threads = remove_threads_from_list(sleeping_threads);
-		print_threads(sleeping_threads, "Sleeping threads Final ");
-		print_q(RUNNABLE_Q, "Runnable Q : ");
+		//print_threads(sleeping_threads, "Sleeping threads Final ");
+		
 		new_thread = dequeue(&RUNNABLE_Q);
 		if ((new_thread != NULL) && (new_thread->sleeping == 0) && 
 		(new_thread->lock_queued == 0) && (new_thread->finished == 0)) {
@@ -190,6 +191,7 @@ void context_switch(void) {
 				do_switch(&old_current->current_sp, new_thread->current_sp);
 				break;
 			}
+			
 		}
 	}
 }
@@ -261,8 +263,6 @@ int qthread_create(qthread_t *thread, qthread_attr_t *attr,
     return 0;
 }
 
-
-
 /* qthread_exit - sort of like qthread_yield, except we never
  * return. If the thread is joinable you need to save 'val' for a
  * future call to qthread_join; otherwise you can free allocated
@@ -287,6 +287,8 @@ void qthread_exit(void *val)
 void print_mutex(qthread_mutex_t *mutex, char* msg) {
 	printf("\n%s, ",msg);
 	printf("mutex lock = %d", mutex->lock);
+	if (mutex->owner != NULL) 
+		printf("  Owner = %d ", mutex->owner->thread_id);
 	print_q(mutex->wait_q, "mutex wait_q");
 }
 
@@ -298,6 +300,7 @@ int qthread_mutex_init(qthread_mutex_t *mutex, qthread_mutexattr_t *attr)
 {
 	mutex = (qthread_mutex_t *) malloc(sizeof(qthread_mutex_t));
     mutex->lock = UNLOCK;
+    mutex->owner = NULL;
     mutex->wait_q = NULL;
     return 0;
 }
@@ -327,19 +330,32 @@ int qthread_mutex_lock(qthread_mutex_t *mutex)
 	}
 	printf("\nThread %d : Lock obtained !!\n", current->thread_id);
 	mutex->lock = LOCK;
+	mutex->owner = current;
 	print_mutex(mutex, "qthread_mutex_lock end : ");
     return 0;
 }
-int qthread_mutex_unlock(qthread_mutex_t *mutex)
-{
+
+void clear_queue_to_runnable(queue_t *queue) {
 	qthread_t temp = NULL;
-	print_mutex(mutex, "qthread_mutex_unlock start : ");
-	mutex->lock = UNLOCK;
-	while (mutex->wait_q != NULL) {
-		temp = dequeue(&mutex->wait_q);
+	while (*queue != NULL) {
+		temp = dequeue(&(*queue));
 		temp->lock_queued = 0;
 		enqueue(&RUNNABLE_Q, temp);
 	}
+}
+
+int qthread_mutex_unlock(qthread_mutex_t *mutex)
+{
+	//qthread_t temp = NULL;
+	print_mutex(mutex, "qthread_mutex_unlock start : ");
+	mutex->lock = UNLOCK;
+	mutex->owner = NULL;
+	clear_queue_to_runnable(&mutex->wait_q);
+	/*while (mutex->wait_q != NULL) {
+		temp = dequeue(&mutex->wait_q);
+		temp->lock_queued = 0;
+		enqueue(&RUNNABLE_Q, temp);
+	}*/
 	print_mutex(mutex, "qthread_mutex_unlock end : ");
 	print_q(RUNNABLE_Q, "RUNNABLE Q : ");
     return 0;
@@ -350,7 +366,8 @@ int qthread_mutex_unlock(qthread_mutex_t *mutex)
  */
 int qthread_cond_init(qthread_cond_t *cond, qthread_condattr_t *attr)
 {
-    /* your code here */
+    cond = (qthread_cond_t *) malloc (sizeof(qthread_cond_t));
+    cond->cond_q = NULL;
     return 0;
 }
 int qthread_cond_destroy(qthread_cond_t *cond)
@@ -364,7 +381,16 @@ int qthread_cond_destroy(qthread_cond_t *cond)
  */
 int qthread_cond_wait(qthread_cond_t *cond, qthread_mutex_t *mutex)
 {
-    /* your code here */
+	printf("\n qthread_cond_wait called: ");
+	print_mutex(mutex, "qthread_mutex state: ");
+	print_q(RUNNABLE_Q, "RUNNABLE Q : ");
+    if (mutex->owner == current) {
+		qthread_mutex_unlock(mutex);
+		current->lock_queued = 1;  // to avoid scheduling
+		enqueue(&cond->cond_q, current);
+		print_q(cond->cond_q, "cond->cond_q : ");
+		context_switch();
+	}
     return 0;
 }
 
@@ -373,13 +399,27 @@ int qthread_cond_wait(qthread_cond_t *cond, qthread_mutex_t *mutex)
  */
 int qthread_cond_signal(qthread_cond_t *cond)
 {
-    /* your code here */
+	qthread_t temp = NULL;
+	printf("\n qthread_cond_signal called: ");
+	print_q(cond->cond_q, "cond->cond_q initial : ");
+	temp = dequeue(&cond->cond_q);
+	if (temp != NULL) 
+	{
+		temp->lock_queued = 0;
+		enqueue(&RUNNABLE_Q, temp);
+	}
+    print_q(cond->cond_q, "cond->cond_q final : ");
+    print_q(RUNNABLE_Q, "RUNNABLE Q : ");
     return 0;
 }
 
 int qthread_cond_broadcast(qthread_cond_t *cond)
 {
-    /* your code here */
+	printf("\n qthread_cond_signal called: ");
+	print_q(cond->cond_q, "cond->cond_q initial : ");
+    clear_queue_to_runnable(&cond->cond_q);
+    print_q(cond->cond_q, "cond->cond_q final : ");
+    print_q(RUNNABLE_Q, "RUNNABLE Q : ");
     return 0;
 }
 
@@ -471,15 +511,17 @@ qthread_t get_new_node(int data) {
  * else creates a new queue and makes front and rear point to it.
  */
 void enqueue(queue_t *queue_name, qthread_t new_node) {
-	if (*queue_name == NULL) {
-		*queue_name = (queue_t) malloc(sizeof(struct queue_list));
-		(*queue_name)->front = new_node;
-		(*queue_name)->rear = new_node;
-	}
-	else {
-		qthread_t last_node = (*queue_name)->rear;
-		last_node->next = new_node;
-		(*queue_name)->rear = new_node;
+	if (new_node != NULL) {
+		if (*queue_name == NULL) {
+			*queue_name = (queue_t) malloc(sizeof(struct queue_list));
+			(*queue_name)->front = new_node;
+			(*queue_name)->rear = new_node;
+		}
+		else {
+			qthread_t last_node = (*queue_name)->rear;
+			last_node->next = new_node;
+			(*queue_name)->rear = new_node;
+		}
 	}
 }
 

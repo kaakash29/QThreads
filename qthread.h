@@ -26,13 +26,14 @@ typedef struct queue_list* queue_t;
 /* the mutex structure */ 
 struct qthread_mutex {
     int lock;
+    qthread_t owner;
     queue_t wait_q;
 };
 typedef struct qthread_mutex qthread_mutex_t;
 
 /* the cond structure */
 struct qthread_cond {
-    int place_holder;
+    queue_t cond_q;
 };
 typedef struct qthread_cond qthread_cond_t;
 
