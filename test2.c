@@ -105,41 +105,6 @@ void test2(void)
 }
 //-----
 
-
-/* 
- * test : int -> void
- * The test function to test functionality of 
- * the list/queue operations.
- */
-int test3() {
-	queue_t Q = NULL;
-	enqueue(&Q, get_new_node(2));
-	assert(Q != NULL);
-	enqueue(&Q, get_new_node(3));
-	enqueue(&Q, get_new_node(4));
-	enqueue(&Q, get_new_node(5));
-	qthread_t rem_data = NULL;
-	rem_data = dequeue(&Q);
-	rem_data = dequeue(&Q);
-	rem_data = dequeue(&Q);
-	rem_data = dequeue(&Q);
-	rem_data = dequeue(&Q);
-	assert(Q == NULL);
-	rem_data = dequeue(&Q);
-	rem_data = dequeue(&Q);
-	rem_data = dequeue(&Q);
-	assert(Q == NULL);
-	qthread_t head = NULL;
-	assert(head == NULL);
-	head = add_thread_to_list(head, get_new_node(5));
-	assert(head != NULL);
-	head = add_thread_to_list(head, get_new_node(2));
-	head = add_thread_to_list(head, get_new_node(4));
-	head = add_thread_to_list(head, get_new_node(1));
-	head = add_thread_to_list(head, get_new_node(7));
-	head = add_thread_to_list(head, get_new_node(7));
-}
-
 /* test4 : Checks if a thread can join before it has been created 
  * Calls qthread join to join a thread which has not yet been created
  */
@@ -477,7 +442,7 @@ int main(int argc, char **argv)
     test0(); printf("\ntest0 Done !!!");fflush(stdout);
     test1(); printf("\ntest1 Done !!!");fflush(stdout);
     test2(); printf("\ntest2 Done !!!");fflush(stdout);
-    test3(); printf("\ntest3 Done !!!");fflush(stdout);
+    //test3(); printf("\ntest3 Done !!!");fflush(stdout);
     test4(); printf("\ntest4 Done !!!");fflush(stdout);
     //test5(); printf("test5 Done !!!");fflush(stdout);
     test6(); printf("\ntest6 Done !!!");fflush(stdout);
