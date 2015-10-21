@@ -216,6 +216,7 @@ void test5() {
 
 void test6() {
 	qthread_t th1 = NULL, th2 = NULL;
+	counter = 0;
 	qthread_mutex_init(&lock, NULL);
 	// this is a detached thread
 	qthread_create(&th1, NULL, counters_th1, NULL);
@@ -235,6 +236,7 @@ void test6() {
 
 void test7() {
 	qthread_t th1 = NULL, th2 = NULL;
+	counter = 0;
 	qthread_mutex_init(&lock, NULL);
 	// this is a detached thread
 	qthread_create(&th1, NULL, counters_th1, NULL);
@@ -254,6 +256,7 @@ void test7() {
 
 void test8() {
 	qthread_t th1 = NULL, th2 = NULL;
+	counter = 0;
 	qthread_mutex_init(&lock, NULL);
 	// this is a detached thread
 	qthread_create(&th1, (void*) 1, counters_th1, NULL);

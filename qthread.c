@@ -145,37 +145,6 @@ void context_switch(void) {
 	// them are ready to put in runnable queue
 	
 	// switching to the new thread
-	print_q(RUNNABLE_Q, "Runnable Q : ");
-	/*while (new_thread == NULL) {
-		new_thread = dequeue(&RUNNABLE_Q);
-		if (new_thread != NULL) {
-			if (new_thread->finished == 1) {
-				if (new_thread->to_join != NULL) {
-					enqueue(&RUNNABLE_Q, new_thread->to_join);
-					
-				}
-				else {
-					enqueue(&RUNNABLE_Q, new_thread);
-					//qthread_yield();
-				}
-				printf("\nCurrent : %d --- Yielded : %d ** COMPLETED **\n", 
-				current->thread_id, new_thread->thread_id);
-				print_q(RUNNABLE_Q, "Runnable Q : ");
-				current = new_thread;
-				new_thread = NULL;
-			}
-			/*else if (new_thread == current) {
-				enqueue(&RUNNABLE_Q, new_thread);
-				printf("\nCurrent : %d --- Yielded : %d\n", 
-				current->thread_id, new_thread->thread_id);
-				new_thread = NULL;
-			}*/
-			
-	/*	}
-		
-		
-	}*/
-	
 	while ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL)) {
 		print_threads(sleeping_threads, "Sleeping threads Original ");
 		printf("\nCurrent time = %f", gettime());
@@ -193,48 +162,17 @@ void context_switch(void) {
 				do_switch(&old_current->current_sp, new_thread->current_sp);
 				break;
 			}
-			/*else {
-				struct qthread temp = {};
-				temp.dummy = 1;
-				current = &temp;
-				do_switch(&current->current_sp, new_thread->current_sp);
-				break;
-				
-			}*/
 		}
 		
 	}
-    //return 0;
 }
 
 /* qthread_yield - yield to the next runnable thread.
  */
 int qthread_yield(void)
 {
-	/*qthread_t new_thread = NULL, old_current = NULL;
-	printf("\n ----- yield called -------- \n");
-	// to check the sleeping threads list if any of 
-	// them are ready to put in runnable queue
-	print_threads(sleeping_threads, "Sleeping threads Original ");
-	printf("\nCurrent time = %f", gettime());
-	sleeping_threads = remove_threads_from_list(sleeping_threads);
-	print_threads(sleeping_threads, "Sleeping threads Final ");
-	// switching to the new thread
-	print_q(RUNNABLE_Q, "Runnable Q : ");
-	new_thread = dequeue(&RUNNABLE_Q);
-    if (new_thread != NULL) {
-		printf("\nCurrent thread : %d --- Yielded thread: %d\n", 
-		current->thread_id, new_thread->thread_id);
-		old_current = current;
-		current = new_thread;
-		do_switch(&old_current->current_sp, new_thread->current_sp);
-	}*/
-	
-	//if (current->dummy == 0) {
-		enqueue(&RUNNABLE_Q, current);
-		//current = NULL;
-		context_switch();
-	//}
+	enqueue(&RUNNABLE_Q, current);
+	context_switch();
     return 0;
 }
 
@@ -293,8 +231,6 @@ int qthread_create(qthread_t *thread, qthread_attr_t *attr,
     (*thread)->thread_stack = buf;
     enqueue(&RUNNABLE_Q, *thread);
     print_q(RUNNABLE_Q, "RUNNABLE Q");
-    //do_switch(&current->current_sp, (*thread)->current_sp);
-    //qthread_yield();
     return 0;
 }
 
@@ -323,7 +259,7 @@ void qthread_exit(void *val)
 
 void print_mutex(qthread_mutex_t *mutex, char* msg) {
 	printf("\n%s, ",msg);
-	printf("mutex lock = %d\n", mutex->lock);
+	printf("mutex lock = %d", mutex->lock);
 	print_q(mutex->wait_q, "mutex wait_q");
 }
 
@@ -333,11 +269,9 @@ void print_mutex(qthread_mutex_t *mutex, char* msg) {
  */
 int qthread_mutex_init(qthread_mutex_t *mutex, qthread_mutexattr_t *attr)
 {
-	printf("\nqthread_mutex_init called\n");
-    mutex = (qthread_mutex_t *) malloc(sizeof(qthread_mutex_t));
+	mutex = (qthread_mutex_t *) malloc(sizeof(qthread_mutex_t));
     mutex->lock = UNLOCK;
     mutex->wait_q = NULL;
-    print_mutex(mutex, "thread_mutex_init");
     return 0;
 }
 
@@ -358,7 +292,6 @@ int qthread_mutex_lock(qthread_mutex_t *mutex)
 			enqueue(&(mutex->wait_q), current);
 			print_q(mutex->wait_q, "mutex->wait_q : ");
 			current->lock_queued = 1;
-			//current = NULL;
 			context_switch();
 		}
 		else {
@@ -374,21 +307,11 @@ int qthread_mutex_unlock(qthread_mutex_t *mutex)
 {
 	qthread_t temp = NULL;
 	print_mutex(mutex, "qthread_mutex_unlock start : ");
-	//print_mutex(mutex, "qthread_mutex_unlock start");
 	mutex->lock = UNLOCK;
 	while (mutex->wait_q != NULL) {
-		//print_mutex(mutex, "qthread_mutex_unlock before enqueue");
 		temp = dequeue(&mutex->wait_q);
 		temp->lock_queued = 0;
 		enqueue(&RUNNABLE_Q, temp);
-		//while (mutex->wait_q != NULL) {
-		//print_mutex(mutex, "qthread_mutex_unlock after enqueue");
-		//RUNNABLE_Q->rear = mutex->wait_q->rear;
-		//mutex->wait_q->front = NULL;
-		//mutex->wait_q->rear = NULL;
-		//mutex->wait_q = NULL;
-		//	dequeue();
-		//}
 	}
 	print_mutex(mutex, "qthread_mutex_unlock end : ");
 	print_q(RUNNABLE_Q, "RUNNABLE Q : ");
@@ -451,8 +374,6 @@ int qthread_usleep(long int usecs)
 	current->time_to_wake_up = gettime() + (usecs/1.0e6);
     sleeping_threads = add_thread_to_list(sleeping_threads, current);
     current->sleeping = 1;
-    //qthread_yield();
-    //current = NULL;
     context_switch();
     return 0;
 }
@@ -502,20 +423,10 @@ int qthread_join(qthread_t thread, void **retval)
 {
 	printf("\n---- join invoked ---\n");
     if ((thread == NULL) || (thread->isDetached == 1))
-		return -1;
-	//qthread_t new_thread = NULL;
-	//new_thread = dequeue(&RUNNABLE_Q);
-    //if (new_thread != NULL) {
-		//void **old_address = &current->current_sp;
-		//running_thread = new_thread;
-		//do_switch(&current->current_sp, thread->current_sp);
-		
+		return -1;	
 	thread->to_join = current;
 	context_switch();
 	*retval = thread->return_value;
-	//	qthread_yield();
-	//	*retval = return_val;
-	//}
     return 0;
 }
 
@@ -576,7 +487,6 @@ qthread_t add_thread_to_list(qthread_t head, qthread_t thread) {
 		return head;
 		
 	if (head == NULL) {
-		printf("\nhead was null Thread: %d", thread->thread_id);
 		head = thread;
 		thread->next = NULL;
 	}
@@ -591,23 +501,19 @@ qthread_t add_thread_to_list(qthread_t head, qthread_t thread) {
 			temp = temp->next;
 		}
 		if (prev == temp) {
-			printf("\nInsert as head node Thread: %d", thread->thread_id);
 			// to insert as the head node
 			thread->next = head;
 			head = thread;
 		}
 		else if (temp == NULL) {
-			printf("\nInsert temp is null Thread: %d", thread->thread_id);
 			prev->next = thread;
 			thread->next = NULL;
 		}
 		else if (temp->time_to_wake_up > thread->time_to_wake_up) {
-			printf("\nInsert greater time to wake up Thread: %d", thread->thread_id);
 			thread->next = prev->next;
 			prev->next = thread;
 		}
 		else {
-			printf("\nInsert else Thread: %d", thread->thread_id);
 			temp->next = thread;
 			thread->next = NULL;
 		}
