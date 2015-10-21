@@ -195,10 +195,9 @@ void* counters_th2() {
 	return (void*) counter;
 }
 
-
- 
 void test5() {
 	qthread_t th1 = NULL, th2 = NULL;
+	counter = 0;
 	qthread_mutex_init(&lock, NULL);
 	qthread_create(&th1, NULL, counters_th1, NULL);
 	qthread_create(&th2, NULL, counters_th2, NULL);
@@ -207,6 +206,63 @@ void test5() {
 	qthread_join(th1, &retval);
 	qthread_join(th2, &retval);
 	printf("\nTest 5 done\n");
+}
+
+/* 
+ * test6 : int -> void
+ * The test function to test functionality of 
+ * the list/queue operations.
+ */
+
+void test6() {
+	qthread_t th1 = NULL, th2 = NULL;
+	qthread_mutex_init(&lock, NULL);
+	// this is a detached thread
+	qthread_create(&th1, NULL, counters_th1, NULL);
+	qthread_create(&th2, (void*) 1, counters_th2, NULL);
+	
+	void* retval;
+	qthread_join(th1, &retval);
+	qthread_join(th2, &retval);
+	printf("\nTest 6 done\n");
+}
+
+/* 
+ * test7 : int -> void
+ * The test function to test functionality of 
+ * the list/queue operations.
+ */
+
+void test7() {
+	qthread_t th1 = NULL, th2 = NULL;
+	qthread_mutex_init(&lock, NULL);
+	// this is a detached thread
+	qthread_create(&th1, NULL, counters_th1, NULL);
+	qthread_create(&th2, (void*) 1, counters_th2, NULL);
+	
+	void* retval;
+	qthread_join(th1, &retval);
+	//qthread_join(th2, &retval);
+	printf("\nTest 7 done\n");
+}
+
+/* 
+ * test8 : int -> void
+ * The test function to test functionality of 
+ * the list/queue operations.
+ */
+
+void test8() {
+	qthread_t th1 = NULL, th2 = NULL;
+	qthread_mutex_init(&lock, NULL);
+	// this is a detached thread
+	qthread_create(&th1, (void*) 1, counters_th1, NULL);
+	qthread_create(&th2, NULL, counters_th2, NULL);
+	
+	void* retval;
+	//qthread_join(th1, &retval);
+	qthread_join(th2, &retval);
+	printf("\nTest 8 done\n");
 }
 
 int main(int argc, char **argv)
@@ -227,6 +283,9 @@ int main(int argc, char **argv)
     test3(); // to check the queue and list functionality
     test4();
     test5();
+    test6();
+    test7();
+    test8();
     
     /* 3. condvar and sleep.
      * initialize a condvar and a mutex

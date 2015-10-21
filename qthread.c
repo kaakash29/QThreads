@@ -262,7 +262,7 @@ qthread_t get_new_thread(qthread_attr_t *attr) {
     new_thread->thread_id = thread_id++;
     new_thread->thread_stack = NULL;
     new_thread->current_sp = NULL;
-    new_thread->isDetached = (attr == NULL? 0 : *attr);
+    new_thread->isDetached = (attr == NULL? 0 : (int)attr);
     new_thread->time_to_wake_up = 0;
     new_thread->return_value = (void*) 0;
     new_thread->to_join = NULL;
@@ -307,13 +307,17 @@ int qthread_create(qthread_t *thread, qthread_attr_t *attr,
  */
 void qthread_exit(void *val)
 {
-    current->return_value = val;
     current->finished = 1;
-    while (current->to_join == NULL) {
-		qthread_yield();
+    // checking whether it is a detached thread, for which 
+    // return value is not required and it is not required to join
+    if (current->isDetached != 1) {
+		current->return_value = val;
+		while (current->to_join == NULL) {
+			qthread_yield();
+		}
+		enqueue(&RUNNABLE_Q, current->to_join);
+		current->to_join = NULL;
 	}
-	enqueue(&RUNNABLE_Q, current->to_join);
-	current->to_join = NULL;
 	context_switch();
 }
 
