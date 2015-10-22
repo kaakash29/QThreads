@@ -178,6 +178,18 @@ void print_io(fd_wait_t io, char* msg) {
 	}
 }
 
+/* 
+ * print_mutex : qthread_mutex_t* char* -> void
+ * Prints the given mutex with msg.
+ */
+void print_mutex(qthread_mutex_t *mutex, char* msg) {
+	printf("\n%s, ",msg);
+	printf("mutex lock = %d", mutex->lock);
+	if (mutex->owner != NULL) 
+		printf("  Owner = %d ", mutex->owner->thread_id);
+	print_q(mutex->wait_q, "mutex wait_q");
+}
+
 /*
  * print_threads : qthread_t char* -> void
  * Prints the msg and threads in the list pointed to by head.
@@ -251,14 +263,18 @@ void set_select_for_fd_list(fd_wait_t head) {
 
 /*
  * io_unblock_threads : fd_wait_t -> fd_wait_t
- * 
+ * Unblocks all the threads from the file descriptor list 
+ * if that file descriptor will not block anymore now.
+ * The threads will be put in the Runnable queue.
  */ 
 fd_wait_t io_unblock_threads(fd_wait_t head) {
 	fd_wait_t temp = head, prev;
 	int fd = -1;
+	/* update the file desciptor states */
 	set_select_for_fd_list(head);
 	temp = head;
 	prev = temp;
+	/* unblock the threads if the fd is noblocking */
 	while (temp != NULL) {
 		fd = temp->fd;
 		if(((FD_ISSET(fd, &fd_set_read)) && (temp->io_type == READ)) || 
@@ -335,7 +351,9 @@ void context_switch(void) {
 	}
 }
 
-/* qthread_yield - yield to the next runnable thread.
+/* qthread_yield - void -> int
+ * Enqueues the currently running thread in the Runnable Queue 
+ * and invokes to switch to the next runnable thread. 
  */
 int qthread_yield(void)
 {
@@ -354,7 +372,10 @@ int qthread_attr_init(qthread_attr_t *attr)
     return 0;
 }
 
-/* The only attribute supported is 'detached' - if it is true a thread
+/* 
+ * qthread_attr_setdetachstate : qthread_attr_t int -> int
+ * Sets attr to detachedstate.
+ * The only attribute supported is 'detached' - if it is true a thread
  * will clean up when it exits; otherwise the thread structure hangs
  * around until another thread calls qthread_join() on it.
  */
@@ -401,13 +422,12 @@ fd_wait_t get_new_fd_wait_node (int fd, int io_type) {
 	return fd_node;
 }
 
-/* a thread can exit by either returning from its main function or
- * calling qthread_exit(), so you should probably use a dummy start
- * function that calls the real start function and then calls
- * qthread_exit after it returns.
- */
-
-/* qthread_create - create a new thread and add it to the active list
+/* 
+ * qthread_create - qthread_t* qthread_attr_t* 
+ * 					qthread_func_ptr_t void* -> int
+ * Creates a new thread pointed by thread, with attribute attr, 
+ * execute function start with parameter arg, 
+ * and add it to the queue of runnable threads.
  */
 int qthread_create(qthread_t *thread, qthread_attr_t *attr,
                    qthread_func_ptr_t start, void *arg)
@@ -424,8 +444,8 @@ int qthread_create(qthread_t *thread, qthread_attr_t *attr,
     return 0;
 }
 
-/* qthread_exit - sort of like qthread_yield, except we never
- * return. If the thread is joinable you need to save 'val' for a
+/* qthread_exit - void* -> void
+ * If the thread is joinable you need to save 'val' for a
  * future call to qthread_join; otherwise you can free allocated
  * memory. 
  */
@@ -442,20 +462,12 @@ void qthread_exit(void *val)
 		enqueue(&RUNNABLE_Q, current->to_join);
 		current->to_join = NULL;
 	}
+	free(current);
 	context_switch();
 }
 
-void print_mutex(qthread_mutex_t *mutex, char* msg) {
-	printf("\n%s, ",msg);
-	printf("mutex lock = %d", mutex->lock);
-	if (mutex->owner != NULL) 
-		printf("  Owner = %d ", mutex->owner->thread_id);
-	print_q(mutex->wait_q, "mutex wait_q");
-}
-
-/* qthread_mutex_init/destroy - initialize (destroy) a mutex. Ignore
- * 'attr' - mutexes are non-recursive, non-debugging, and
- * non-any-other-POSIX-feature. 
+/* qthread_mutex_init - qthread_mutex_t* qthread_mutexattr_t* -> int
+ * Initialize a mutex with attributes attr. 
  */
 int qthread_mutex_init(qthread_mutex_t *mutex, qthread_mutexattr_t *attr)
 {
@@ -466,16 +478,20 @@ int qthread_mutex_init(qthread_mutex_t *mutex, qthread_mutexattr_t *attr)
     return 0;
 }
 
+/* qthread_mutex_destroy - qthread_mutex_t* -> int
+ * Destroy a mutex. 
+ */
 int qthread_mutex_destroy(qthread_mutex_t *mutex)
 {
-    //free(mutex);
     free(mutex->owner);
     free(mutex->wait_q);
     mutex->lock = 0;
     return 0;
 }
 
-/* qthread_mutex_lock/unlock
+/* qthread_mutex_lock : qthread_mutex_t* -> int
+ * Current thread tries to lock the mutex, if possible, 
+ * otherwise waits in the mutex queue till lock is obtained.
  */
 int qthread_mutex_lock(qthread_mutex_t *mutex)
 {
@@ -499,25 +515,23 @@ int qthread_mutex_lock(qthread_mutex_t *mutex)
     return 0;
 }
 
+/* qthread_mutex_unlock : qthread_mutex_t* -> int
+ * Unlocks the mutex and puts all the threads waiting 
+ * on this mutex to the runnable queue.
+ */
 int qthread_mutex_unlock(qthread_mutex_t *mutex)
 {
-	//qthread_t temp = NULL;
 	print_mutex(mutex, "qthread_mutex_unlock start : ");
 	mutex->lock = UNLOCK;
 	mutex->owner = NULL;
 	clear_queue_to_runnable(&mutex->wait_q);
-	/*while (mutex->wait_q != NULL) {
-		temp = dequeue(&mutex->wait_q);
-		temp->lock_queued = 0;
-		enqueue(&RUNNABLE_Q, temp);
-	}*/
 	print_mutex(mutex, "qthread_mutex_unlock end : ");
 	print_q(RUNNABLE_Q, "RUNNABLE Q : ");
     return 0;
 }
 
-/* qthread_cond_init/destroy - initialize a condition variable. Again
- * we ignore 'attr'.
+/* qthread_cond_init - qthread_cond_t* qthread_condattr_t* -> int
+ * Initialize a condition variable cond. Again we ignore 'attr'.
  */
 int qthread_cond_init(qthread_cond_t *cond, qthread_condattr_t *attr)
 {
@@ -525,14 +539,19 @@ int qthread_cond_init(qthread_cond_t *cond, qthread_condattr_t *attr)
     cond->cond_q = NULL;
     return 0;
 }
+
+/* qthread_cond_destroy - qthread_cond_t* -> int
+ * Destroy the condition variable cond.
+ */
 int qthread_cond_destroy(qthread_cond_t *cond)
 {
     free(cond->cond_q);
     return 0;
 }
 
-/* qthread_cond_wait - unlock the mutex and wait on 'cond' until
- * signalled; lock the mutex again before returning.
+/* qthread_cond_wait - qthread_cond_t* qthread_mutex_t* -> int
+ * Unlock the mutex and wait on 'cond' until signalled.
+ * lock the mutex again before returning.
  */
 int qthread_cond_wait(qthread_cond_t *cond, qthread_mutex_t *mutex)
 {
@@ -549,8 +568,10 @@ int qthread_cond_wait(qthread_cond_t *cond, qthread_mutex_t *mutex)
     return 0;
 }
 
-/* qthread_cond_signal/broadcast - wake one/all threads waiting on a
- * condition variable. Not an error if no threads are waiting.
+/* qthread_cond_signal - qthread_cond_t* -> int
+ * Wake one thread waiting on the condition variable cond. 
+ * Enqueues the thread on the runnable queue.
+ * Not an error if no threads are waiting.
  */
 int qthread_cond_signal(qthread_cond_t *cond)
 {
@@ -568,6 +589,11 @@ int qthread_cond_signal(qthread_cond_t *cond)
     return 0;
 }
 
+/* qthread_cond_broadcast - qthread_cond_t* -> int
+ * Wake all threads waiting on the condition variable. 
+ * Enueues them on the runnable queue.
+ * Not an error if no threads are waiting.
+ */
 int qthread_cond_broadcast(qthread_cond_t *cond)
 {
 	printf("\n qthread_cond_signal called: ");
@@ -588,14 +614,16 @@ int qthread_cond_broadcast(qthread_cond_t *cond)
  * for the earliest thread waiting in qthread_usleep()
  */
 
-/* qthread_usleep - yield to next runnable thread, making arrangements
+/* qthread_usleep - long int -> int
+ * Yield to next runnable thread, making arrangements
  * to be put back on the active list after 'usecs' timeout. 
  */
 int qthread_usleep(long int usecs)
 {
 	if (current->finished == 0) {
 	current->time_to_wake_up = gettime() + (usecs/1.0e6);
-	printf("\nto add sleeping threads: usecs = %ld for thread = %d", usecs, current->thread_id);
+	printf("\nto add sleeping threads: usecs = %ld for thread = %d", 
+	usecs, current->thread_id);
     sleeping_threads = add_thread_to_list(sleeping_threads, current);
     current->sleeping = 1;
     context_switch();
