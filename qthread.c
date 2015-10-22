@@ -35,13 +35,13 @@ extern void do_switch(void **location_for_old_sp, void *new_value);
 /* ====================== STRUCT qthread =========================*/
 struct qthread {
 	 int thread_id;  /* to store the id of the thread */
-	 int is_finished;   /* to indicate whether the thread has 
-					  * finished executing */
-	 int is_inactive; /* to indicate whether the thread is queued  
-					  *	in some mutex/cond/io/sleep q */
      void* thread_stack; /* the pointer to the thread stack */
      void* current_sp; /* the pointer to the sp of thread stack */
      int is_detached;   /* to indicate a detached thread */
+     int is_finished;   /* to indicate whether the thread has 
+					  * finished executing */
+	 int is_inactive; /* to indicate whether the thread is queued  
+					  *	in some mutex/cond/io/sleep queue */
      double time_to_wake_up;  /* to indicate the time to wake up if 
 							   * sleeping */
      void* return_value;  /* to save the return value of the thread */
@@ -55,16 +55,16 @@ struct qthread {
 /* A queue structure to save the front and 
  * rear of a queue of threads */
 struct queue_list {
-	qthread_t front;
-	qthread_t rear;
+	qthread_t front;  /* to save the front of the queue */
+	qthread_t rear;   /* to save the rear of the queue */
 };
 
 /* ===================== STRUCT fd_wait_node ========================*/
 struct fd_wait_node {
-	int fd;
-	int io_type;
-	queue_t io_wait_q;
-	struct fd_wait_node *next;
+	int fd;      /* the file descriptor on which threads will wait */
+	int io_type; /* the type of I/O - read or write */
+	queue_t io_wait_q; /* the queue of threads waiting on this fd */
+	struct fd_wait_node *next; /* the next node in the list */
 };
 typedef struct fd_wait_node* fd_wait_t;
 
@@ -92,7 +92,7 @@ fd_wait_t io_thread_wait_fds = NULL;
 
 /* =================== FUNCTION DECLARATIONS =======================*/
 /* list modification functions */
-qthread_t add_thread_to_list(qthread_t head, qthread_t thread);
+qthread_t add_to_sleep_list(qthread_t head, qthread_t thread);
 qthread_t dequeue(queue_t *queue_name);
 void enqueue(queue_t *queue_name, qthread_t new_node);
 qthread_t make_woken_threads_runnable(qthread_t head);
@@ -231,12 +231,10 @@ fd_wait_t io_unblock_threads(fd_wait_t head) {
 			clear_queue_to_runnable(&temp->io_wait_q);	
 
 			if (prev == temp) {
-				// the first node
 				prev = temp->next;
 				head = temp->next;
 			}
 			else {
-				// this is not the first node
 				prev->next = temp->next;
 			}
 		}
@@ -402,6 +400,7 @@ void qthread_exit(void *val)
 		enqueue(&RUNNABLE_Q, current->to_join);
 	}
 	context_switch();
+	/* free the current thread stack as its execution is over */
 	free(current->thread_stack);
 }
 
@@ -500,7 +499,7 @@ int qthread_cond_wait(qthread_cond_t *cond, qthread_mutex_t *mutex)
 {
     if (mutex->owner == current) {
 		qthread_mutex_unlock(mutex);
-		current->is_inactive = TRUE;  // to avoid scheduling
+		current->is_inactive = TRUE;
 		enqueue(&cond->cond_q, current);
 		context_switch();
 	}
@@ -558,7 +557,7 @@ int qthread_usleep(long int usecs)
 {
 	if (current->is_finished == FALSE) {
 	current->time_to_wake_up = gettime() + (usecs/1.0e6);
-    sleeping_threads = add_thread_to_list(sleeping_threads, current);
+    sleeping_threads = add_to_sleep_list(sleeping_threads, current);
     current->is_inactive = TRUE;
     context_switch();
 	}
@@ -576,7 +575,8 @@ void io_block_thread(int sockfd, int io_type) {
 	fd_wait_t prev = temp;
 	while (temp != NULL) {
 		if ((temp->fd == sockfd) && (temp->io_type == io_type)) {
-			// this is the fd for which the current thread will block
+			/* this is the fd for which the current 
+			 * thread will block */
 			enqueue(&temp->io_wait_q, current);
 			break;
 		}
@@ -584,11 +584,10 @@ void io_block_thread(int sockfd, int io_type) {
 		temp = temp->next;
 	}
 	if (temp == NULL) {
-		// the fd is not present, need to create a new one
+		/* the fd is not present, need to create a new one */
 		fd_wait_t new_fd = get_new_fd_wait_node(sockfd, io_type);
 		enqueue(&new_fd->io_wait_q, current);
 		if (prev != NULL) {
-			// not the first node
 			prev->next = new_fd;
 		}
 		else {
@@ -717,7 +716,6 @@ qthread_t dequeue(queue_t *queue_name) {
 	if (*queue_name != NULL) {
 		if ((*queue_name)->front == (*queue_name)->rear) {
 			removed_node = (*queue_name)->front;
-			// freeing memory space of the queue
 			free(*queue_name);
 			*queue_name = NULL;
 		}
@@ -732,11 +730,12 @@ qthread_t dequeue(queue_t *queue_name) {
 
 /* *************************************************************** */
 /* 
- * add_thread_to_list : qthread_t qthread_t -> qthread_t
- * Adds the given thread to the list of threads pointed to by head 
- * and returns the head.
+ * add_to_sleep_list : qthread_t qthread_t -> qthread_t
+ * Adds the given thread to the list of sleeping threads pointed to 
+ * by head, in sorted order of time to wake up for the thread going to 
+ * sleep and returns the head.
  */
-qthread_t add_thread_to_list(qthread_t head, qthread_t thread) {
+qthread_t add_to_sleep_list(qthread_t head, qthread_t thread) {
 	if (thread == NULL)
 		return head;
 		
@@ -745,8 +744,8 @@ qthread_t add_thread_to_list(qthread_t head, qthread_t thread) {
 		thread->next = NULL;
 	}
 	else {
-		// to insert the thread at the correct position according to 
-		// time.
+		/* to insert the thread at the correct position according to
+		 * time */
 		qthread_t temp = head;
 		qthread_t prev = head;
 		while ((temp != NULL) && 
@@ -755,7 +754,6 @@ qthread_t add_thread_to_list(qthread_t head, qthread_t thread) {
 			temp = temp->next;
 		}
 		if (prev == temp) {
-			// to insert as the head node
 			thread->next = head;
 			head = thread;
 		}
@@ -785,18 +783,16 @@ qthread_t make_woken_threads_runnable(qthread_t head) {
 	qthread_t prev = head;
 	qthread_t to_free = NULL;
 	while ((temp != NULL) && (temp->time_to_wake_up <= gettime())) {
-		// add to runnable queue
+		/* add to runnable queue */
 		temp->is_inactive = FALSE;
 		temp->time_to_wake_up = 0;
 		enqueue(&RUNNABLE_Q, temp);
-		// remove this thread from this list
+		/* remove this thread from this list */
 		if (prev == temp) {
-			// the first node
 			prev = temp->next;
 			head = temp->next;
 		}
 		else {
-			// this is not the first node
 			prev->next = temp->next;
 		}
 		temp = temp->next;
@@ -906,12 +902,12 @@ int test_for_list_operations() {
 	assert(Q == NULL);
 	qthread_t head = NULL;
 	assert(head == NULL);
-	head = add_thread_to_list(head, get_new_thread(NULL));
+	head = add_to_sleep_list(head, get_new_thread(NULL));
 	assert(head != NULL);
-	head = add_thread_to_list(head, get_new_thread(NULL));
-	head = add_thread_to_list(head, get_new_thread(NULL));
-	head = add_thread_to_list(head, get_new_thread(NULL));
-	head = add_thread_to_list(head, get_new_thread(NULL));
-	head = add_thread_to_list(head, get_new_thread(NULL));
+	head = add_to_sleep_list(head, get_new_thread(NULL));
+	head = add_to_sleep_list(head, get_new_thread(NULL));
+	head = add_to_sleep_list(head, get_new_thread(NULL));
+	head = add_to_sleep_list(head, get_new_thread(NULL));
+	head = add_to_sleep_list(head, get_new_thread(NULL));
 }
 /* *************************************************************** */
