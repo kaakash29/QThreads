@@ -19,7 +19,6 @@
  * qthread_join() to wait for it.
  */
 void *f1(void *arg) { printf("\nTEST ::: Hello\n"); 
-	//qthread_exit(arg); 
 	return arg;
 }
 
@@ -490,9 +489,9 @@ void producer_consumer() {
 		printf("\n Return from consumer = %d\n", (int) retval);
 	}
 	
-	//qthread_cond_destroy(&notEmpty);
-	//qthread_cond_destroy(&notFull);
-	//qthread_mutex_destroy(&l);
+	qthread_cond_destroy(&notEmpty);
+	qthread_cond_destroy(&notFull);
+	qthread_mutex_destroy(&l);
 }
 //----
 
@@ -533,7 +532,7 @@ int main(int argc, char **argv)
     test_sleep_thread(); printf("\ntest_sleep_thread Done !!!");fflush(stdout);
     test_sleep_mutex_detached(); printf("\ntest_sleep_mutex_detached Done !!!");fflush(stdout);
     test_read(); printf("\ntest_read Done !!!");fflush(stdout);
-    test_read_write(); printf("\ntest_read_write Done !!!");fflush(stdout);
+    test_read_write(); printf("\ntest_read_write Done !!!"); fflush(stdout);
     producer_consumer(); printf("\nproducer_consumer Done !!!");fflush(stdout);
         
     printf("\n\n All tests Done !! No crashes encountered !! \n\n");
