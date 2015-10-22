@@ -438,7 +438,7 @@ int qthread_mutex_init(qthread_mutex_t *mutex, qthread_mutexattr_t *attr)
 
 int qthread_mutex_destroy(qthread_mutex_t *mutex)
 {
-    /* your code here */
+    //free(mutex);
     return 0;
 }
 
@@ -494,7 +494,7 @@ int qthread_cond_init(qthread_cond_t *cond, qthread_condattr_t *attr)
 }
 int qthread_cond_destroy(qthread_cond_t *cond)
 {
-    /* your code here */
+    //free(cond);
     return 0;
 }
 
@@ -629,19 +629,18 @@ ssize_t qthread_read(int sockfd, void *buf, size_t len)
  */
 int qthread_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
-    /*int tmp = fcntl(sockfd, F_GETFL, 0);
+    int tmp = fcntl(sockfd, F_GETFL, 0);
     fcntl(sockfd, F_SETFL, tmp | O_NONBLOCK);
     
-    int result = read(sockfd, buf, len);
+    int result = read(sockfd, addr, *addrlen);
 	while ((result == -1) || (result == EAGAIN)) {
 		io_block_thread(sockfd, READ);
 		current->lock_queued = 1;
-		FD_SET(sockfd, &BLOCKING_FD_SET_READ);
 		context_switch();
-		result = read(sockfd, buf, len);
+		result = read(sockfd, addr, *addrlen);
 	}
 	current->lock_queued = 0;
-    return result;*/
+    //return result;
     return 0;
 }
 
@@ -677,7 +676,9 @@ int qthread_join(qthread_t thread, void **retval)
 		return -1;	
 	thread->to_join = current;
 	context_switch();
-	*retval = thread->return_value;
+	if (retval != NULL) {
+		*retval = thread->return_value;
+	}
     return 0;
 }
 

@@ -489,6 +489,10 @@ void producer_consumer() {
 		qthread_join(consumers[i], &retval);
 		printf("\n Return from consumer = %d\n", (int) retval);
 	}
+	
+	//qthread_cond_destroy(&notEmpty);
+	//qthread_cond_destroy(&notFull);
+	//qthread_mutex_destroy(&l);
 }
 //----
 
