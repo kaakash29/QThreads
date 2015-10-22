@@ -525,7 +525,8 @@ int main(int argc, char **argv)
     
     test_detach(); printf("\ntest_detach Done !!!");fflush(stdout);
 	test_join_zombie(); printf("\ntest_join_zombie Done !!!");fflush(stdout);
-    //leave commented //test_sleep_main(); printf("test_sleep_main Done !!!");fflush(stdout);
+    //leave commented //
+    test_sleep_main(); printf("test_sleep_main Done !!!");fflush(stdout);
     test_sleep_thread(); printf("\ntest_sleep_thread Done !!!");fflush(stdout);
     test_sleep_mutex_detached(); printf("\ntest_sleep_mutex_detached Done !!!");fflush(stdout);
     test_read(); printf("\ntest_read Done !!!");fflush(stdout);

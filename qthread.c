@@ -178,12 +178,12 @@ void context_switch(void) {
 		// to check the sleeping threads list if any of 
 		// them are ready to put in runnable queue
 		sleeping_threads = remove_threads_from_list(sleeping_threads);
-		//print_threads(sleeping_threads, "Sleeping threads Final ");
-		
+		print_threads(sleeping_threads, "Sleeping threads Final ");
+		//print_q(RUNNABLE_Q, "Runnable Q : ");
 		new_thread = dequeue(&RUNNABLE_Q);
 		if ((new_thread != NULL) && (new_thread->sleeping == 0) && 
 		(new_thread->lock_queued == 0) && (new_thread->finished == 0)) {
-			if (current != NULL) {
+			if (new_thread != current) {
 				printf("\nCurrent thread : %d --- to switch thread: %d\n", 
 				current->thread_id, new_thread->thread_id);
 				old_current = current;
@@ -191,7 +191,28 @@ void context_switch(void) {
 				do_switch(&old_current->current_sp, new_thread->current_sp);
 				break;
 			}
-			
+			else {
+				
+				
+				/*
+				//struct qthread temp = {};
+				printf("\nCurrent thread : %d --- to switch thread: %d\n", 
+				current->thread_id, new_thread->thread_id);
+				old_current = &start_thread;
+				current = new_thread;
+				do_switch(&old_current->current_sp, new_thread->current_sp);
+				break;*/
+				
+				printf("\nCurrent thread : %d --- to switch thread: %d NOT POSSIBLE---\n", 
+				current->thread_id, new_thread->thread_id);
+				if ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL)) {
+					enqueue(&RUNNABLE_Q, new_thread);
+				}
+				else {
+					printf("\nONLY 1 thread ... Current thread : %d --- to switch thread: %d NOT POSSIBLE---\n", 
+					current->thread_id, new_thread->thread_id);
+				}
+			}
 		}
 	}
 }
@@ -438,10 +459,13 @@ int qthread_cond_broadcast(qthread_cond_t *cond)
  */
 int qthread_usleep(long int usecs)
 {
+	if (current->finished == 0) {
 	current->time_to_wake_up = gettime() + (usecs/1.0e6);
+	printf("\nto add sleeping threads: usecs = %ld for thread = %d", usecs, current->thread_id);
     sleeping_threads = add_thread_to_list(sleeping_threads, current);
     current->sleeping = 1;
     context_switch();
+	}
     return 0;
 }
 
@@ -602,17 +626,18 @@ qthread_t remove_threads_from_list(qthread_t head) {
 		temp->sleeping = 0;
 		temp->time_to_wake_up = 0;
 		enqueue(&RUNNABLE_Q, temp);
-		
+		printf("\nPut thread = %d from SLEEP to RUN", temp->thread_id);
 		// remove this thread from this list
 		if (prev == temp) {
 			// the first node
+			prev = temp->next;
 			head = temp->next;
 		}
 		else {
 			// this is not the first node
 			prev->next = temp->next;
 		}
-		prev = temp;
+		//prev = temp;
 		temp = temp->next;
 	}
 	return head;
