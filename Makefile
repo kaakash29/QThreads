@@ -41,9 +41,9 @@ io_test: io_test.o libqthread.a
 	gcc -g io_test.o -o io_test -L. -lqthread
 
 test:
-	./test1 | grep -I "Done"
-	./sleep_test -v | ./greenest
-	./mutex_test -v | ./greenest
-	./exit_join_test -v | ./greenest
-	./condition_test -v | ./greenest
-	./io_test -v | ./greenest	
+	./test1 | grep -I "PASS"
+	./sleep_test -v | ./greenest | grep -I "PASS"
+	./mutex_test -v | ./greenest | grep -I "PASS"
+	./exit_join_test -v | ./greenest | grep -I "PASS"
+	./condition_test -v | ./greenest | grep -I "PASS"
+	./io_test -v | ./greenest | grep -I "PASS"	

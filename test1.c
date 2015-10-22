@@ -145,9 +145,8 @@ int test5(void) {
 
 
 //####################################################################
-/* TEST6 : int -> void
- * The test function to test functionality of 
- * the list/queue operations.
+/* TEST6 : void -> void
+ * Tests locking and unlocking of mutex using counter operations 
  */
 int counter = 0;
 qthread_mutex_t lock;
@@ -194,9 +193,8 @@ void test6() {
 
 
 //##################################################################
-/* test7 : int -> void
- * The test function to test functionality of 
- * the list/queue operations.
+/* test7 : void -> void
+ * Tests the Use of mutex with detached threads.
  */
 void test7() {
 	qthread_attr_t *attr;
@@ -216,9 +214,8 @@ void test7() {
 }
 
 //###################################################################
-/* test8 : int -> void
- * The test function to test functionality of 
- * the list/queue operations.
+/* test8 : void -> void
+ * Tests the locking and unlocking of mutexes on detached thread. 
  */
 void test8() {
 	qthread_attr_t *attr;
@@ -237,9 +234,8 @@ void test8() {
 }
 
 //###################################################################
-/* test9 : int -> void
- * The test function to test functionality of 
- * the list/queue operations.
+/* test9 : void -> void
+ * Tests mutual exclusion without mutexes or conds..
  */
 void* execute(void* num) {
 	printf("\nThe number is: %d", (int) num);
@@ -265,8 +261,7 @@ void test9() {
 
 //###################################################################
 /* test10 : int -> void
- * The test function to test functionality of 
- * the list/queue operations.
+ * Test of counters on joinable threads.
  */
  
 void test10() {
@@ -356,7 +351,7 @@ void test15(void) {
 
 
 //###################################################################
-/* TEST16: tests if possible its to acquire a mutex 
+/* TEST16: tests if possible to acquire a mutex 
  * locked by a detached thread.
  * */
 void *s3(void *v) {
@@ -510,25 +505,25 @@ void test19(){
  ***************************************/
 int main(int argc, char **argv)
 {
-    test0();  printf ("\ntest0 Done !!!"); fflush(stdout);
-    test1();  printf ("\ntest1 Done !!!"); fflush(stdout);
-    test2();  printf ("\ntest2 Done !!!"); fflush(stdout);
-    test4();  printf ("\ntest4 Done !!!"); fflush(stdout);
-    test6();  printf ("\ntest6 Done !!!"); fflush(stdout);
-    test7();  printf ("\ntest7 Done !!!"); fflush(stdout);
-    test8();  printf ("\ntest8 Done !!!"); fflush(stdout);
-    test9();  printf ("\ntest9 Done !!!"); fflush(stdout);
-    test10(); printf("\ntest10 Done !!!"); fflush(stdout);
-    test11(); printf("\ntest11 Done !!!"); fflush(stdout);
-    test12(); printf("\ntest12 Done !!!"); fflush(stdout);
-    test13(); printf("\ntest13 Done !!!"); fflush(stdout);
-    test14(); printf("\ntest14 Done !!!"); fflush(stdout);
-    test15(); printf("\ntest15 Done !!!"); fflush(stdout);
-    test16(); printf("\ntest16 Done !!!"); fflush(stdout);
-    test17(); printf("\ntest17 Done !!!"); fflush(stdout);
-    test18(); printf("\ntest18 Done !!!"); fflush(stdout);
-    test19(); printf("\ntest19 Done !!!"); fflush(stdout);
+    test0();  printf ("\nPASS : single thread create and join"); fflush(stdout);
+    test1();  printf ("\nPASS : multiple thread create and join"); fflush(stdout);
+    test2();  printf ("\nPASS : mutex and sleep"); fflush(stdout);
+    test4();  printf ("\nPASS : join before creation"); fflush(stdout);
+    test6();  printf ("\nPASS : mutex lock and unlock using counters"); fflush(stdout);
+    test7();  printf ("\nPASS : Use of mutex with detached threads !!!"); fflush(stdout);
+    test8();  printf ("\nPASS : lock and unlock mutex on detached thread"); fflush(stdout);
+    test9();  printf ("\nPASS : mutual exclusion without mutexes"); fflush(stdout);
+    test10(); printf ("\nPASS : counter on joinable threads !!!"); fflush(stdout);
+    test11(); printf ("\nPASS : detached thread that yields only"); fflush(stdout);
+    test12(); printf ("\nPASS : qthread_exit function"); fflush(stdout);
+    test13(); printf ("\nPASS : zombie threads are being create"); fflush(stdout);
+    test14(); printf ("\nPASS : usleep on the main thread"); fflush(stdout);
+    test15(); printf ("\nPASS : thread to sleep"); fflush(stdout);
+    test16(); printf ("\nPASS : acquire a mutex locked by a detached thread");fflush(stdout);
+    test17(); printf ("\nPASS : read function call works"); fflush(stdout);
+    test18(); printf ("\nPASS : create a pipe read and write on threads");  fflush(stdout);
+    test19(); printf ("\nPASS : dining philosopher's solution"); fflush(stdout);
         
-    printf("\n\n All tests Done !! \n\n");
+    printf("\n\n");
     return 0;
 }
