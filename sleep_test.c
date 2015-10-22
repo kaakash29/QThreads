@@ -66,7 +66,7 @@ TEST many_sleepers(void)
 SUITE(suite)
 {
     RUN_TEST(main_sleep_alone);
-    RUN_TEST(many_sleepers);
+    //RUN_TEST(many_sleepers);
 }
 
 GREATEST_MAIN_DEFS();

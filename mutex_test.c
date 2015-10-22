@@ -90,11 +90,11 @@ TEST destroy_with_waiting(void)
 
 SUITE(suite)
 {
-    //RUN_TEST(lock_unlock);
-    RUN_TEST(contended_count);
-    //RUN_TEST(init_destroy);
-    //RUN_TEST(destroy_locked);
-    //RUN_TEST(destroy_with_waiting);
+    RUN_TEST(lock_unlock);
+    //RUN_TEST(contended_count);
+    RUN_TEST(init_destroy);
+    RUN_TEST(destroy_locked);
+    RUN_TEST(destroy_with_waiting);
 }
 
 GREATEST_MAIN_DEFS();
