@@ -11,10 +11,19 @@
 #include <sys/time.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/select.h>
+#include <unistd.h>
+#include <errno.h>
 #include "qthread.h"
 
 #define LOCK 1
 #define UNLOCK 0
+
+#define READ 0
+#define WRITE 1
+
+//enum IO = {"Read", "Write"};
+
 /*
  * do_switch is defined in do-switch.s, as the stack frame layout
  * changes with optimization level, making it difficult to do with
@@ -48,11 +57,35 @@ struct queue_list {
 	qthread_t rear;
 };
 
+struct fd_wait_node {
+	int fd;
+	int io_type; // 0 = read, 1 = write
+	queue_t io_wait_q;
+	struct fd_wait_node *next;
+};
+typedef struct fd_wait_node* fd_wait_t;
+
 /* Forward declarations */
 qthread_t add_thread_to_list(qthread_t head, qthread_t thread);
 qthread_t dequeue(queue_t *queue_name);
 void enqueue(queue_t *queue_name, qthread_t new_node);
 qthread_t remove_threads_from_list(qthread_t head);
+
+/* A good organization is to keep a pointer to the 'current'
+ * (i.e. running) thread, and a list of 'active' threads (not
+ * including 'current') which are also ready to run.
+ */
+/* Note that on startup there's already a thread running thread - we
+ * need a placeholder 'struct thread' so that we can switch away from
+ * that to another thread and then switch back. 
+ */
+struct qthread os_thread = {};
+struct qthread *current = &os_thread;
+queue_t RUNNABLE_Q = NULL;   // the queue of runnable threads
+int thread_id = 1;
+qthread_t sleeping_threads = NULL;  // to keep track of the threads 
+	// which are sleeping now and need to awake up after some time
+fd_wait_t io_thread_wait_fds = NULL;  // to store the threads waititng for IO according to fd's
 
 /*
  * setup_stack(stack, function, arg1, arg2) - sets up a stack so that
@@ -121,6 +154,22 @@ void print_q(queue_t Q, char* msg) {
 	}
 }
 
+void print_io(fd_wait_t io, char* msg) {
+	if (io == NULL) {
+		printf("\n IO Block list is EMPTY !!");
+	}
+	else {
+		fd_wait_t temp = io;
+		while (temp != NULL) {
+			printf("\n%s, ",msg);
+			printf("IO fd = %d", io->fd);
+			printf("IO type = %d", io->io_type);
+			print_q(io->io_wait_q, "io wait_q");
+			temp = temp->next;
+		}
+	}
+}
+
 /*
  * print_threads : qthread_t char* -> void
  * Prints the msg and threads in the list pointed to by head.
@@ -144,22 +193,16 @@ void dummy(void* (*func)(void *), void *arg1) {
 	qthread_exit(retval);
 }
 
-/* A good organization is to keep a pointer to the 'current'
- * (i.e. running) thread, and a list of 'active' threads (not
- * including 'current') which are also ready to run.
- */
+void clear_queue_to_runnable(queue_t *queue) {
+	qthread_t temp = NULL;
+	while (*queue != NULL) {
+		temp = dequeue(&(*queue));
+		temp->lock_queued = 0;
+		enqueue(&RUNNABLE_Q, temp);
+	}
+}
 
 
-/* Note that on startup there's already a thread running thread - we
- * need a placeholder 'struct thread' so that we can switch away from
- * that to another thread and then switch back. 
- */
-struct qthread os_thread = {};
-struct qthread *current = &os_thread;
-queue_t RUNNABLE_Q = NULL;   // the queue of runnable threads
-int thread_id = 1;
-qthread_t sleeping_threads = NULL;  // to keep track of the threads 
-	// which are sleeping now and need to awake up after some time
 
 /* Beware - you cannot use do_switch to switch from a thread to
  * itself. If there are no other active threads (or after a timeout
@@ -168,19 +211,90 @@ qthread_t sleeping_threads = NULL;  // to keep track of the threads
  * stack pointer)
  */
 
+fd_set BLOCKING_FD_SET_READ;
+fd_set BLOCKING_FD_SET_WRITE;
+//FD_ZERO(&BLOCKING_FD_SET_READ);
+//FD_ZERO(&BLOCKING_FD_SET_WRITE);
+#define FD_MAXSIZE 1024 // the maximum size of blocking fd 
+/* 
+ * */
+ 
+fd_wait_t io_unblock_threads(fd_wait_t head) {
+	struct timeval t;
+	fd_wait_t temp = head, prev;
+	t.tv_sec = 1;
+	t.tv_usec = 1;
+	int fd = -1;
+	printf("\nio_unblock_threads called .. \n");
+	print_io(head, "IO BLOCKED THREADS : ");
+	FD_ZERO(&BLOCKING_FD_SET_WRITE);
+	FD_ZERO(&BLOCKING_FD_SET_READ);
+	while(temp != NULL) {
+		if (temp->io_type == READ)
+			FD_SET(temp->fd, &BLOCKING_FD_SET_READ);
+		else
+			FD_SET(temp->fd, &BLOCKING_FD_SET_WRITE);
+		temp = temp->next;
+	}
+	
+	select(FD_MAXSIZE, &BLOCKING_FD_SET_READ, 
+	&BLOCKING_FD_SET_WRITE, NULL, &t);
+	
+	temp = head;
+	prev = temp;
+	while (temp != NULL) {
+		fd = temp->fd;
+		
+		if (((FD_ISSET(fd, &BLOCKING_FD_SET_READ)) && 
+		(temp->io_type == READ)) || 
+		((FD_ISSET(fd, &BLOCKING_FD_SET_WRITE)) && 
+		(temp->io_type == WRITE))){
+			//remove the threads from the fd's thread q and
+			//enqueue it to the runnable thread
+			clear_queue_to_runnable(&temp->io_wait_q);	
+			if (prev == temp) {
+				// the first node
+				prev = temp->next;
+				head = temp->next;
+			}
+			else {
+				// this is not the first node
+				prev->next = temp->next;
+			}
+			//prev = temp;
+		}
+		else {
+			prev = temp;
+		}
+		temp = temp->next;
+	}
+	return head;
+}
+
 void context_switch(void) {
 	qthread_t new_thread = NULL, old_current = NULL;
 	printf("\n ----- context_switch called -------- \n");
 	print_q(RUNNABLE_Q, "Runnable Q : ");
-	while ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL)) {
+	while ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL) ||
+	(io_thread_wait_fds != NULL)) {
+		
 		//print_threads(sleeping_threads, "Sleeping threads Original ");
 		//printf("\nCurrent time = %f", gettime());
 		// to check the sleeping threads list if any of 
 		// them are ready to put in runnable queue
-		sleeping_threads = remove_threads_from_list(sleeping_threads);
-		print_threads(sleeping_threads, "Sleeping threads Final ");
-		//print_q(RUNNABLE_Q, "Runnable Q : ");
+		
+		//print_threads(sleeping_threads, "Sleeping threads Final ");
+		
+		print_q(RUNNABLE_Q, "Runnable Q : ");
 		new_thread = dequeue(&RUNNABLE_Q);
+		
+		if (RUNNABLE_Q == NULL) {
+			sleeping_threads = remove_threads_from_list(sleeping_threads);
+			if (RUNNABLE_Q == NULL) {
+				io_thread_wait_fds = io_unblock_threads(io_thread_wait_fds);
+			}
+		}
+		
 		if ((new_thread != NULL) && (new_thread->sleeping == 0) && 
 		(new_thread->lock_queued == 0) && (new_thread->finished == 0)) {
 			if (new_thread != current) {
@@ -192,28 +306,15 @@ void context_switch(void) {
 				break;
 			}
 			else {
-				
-				
-				/*
-				//struct qthread temp = {};
-				printf("\nCurrent thread : %d --- to switch thread: %d\n", 
-				current->thread_id, new_thread->thread_id);
-				old_current = &start_thread;
-				current = new_thread;
-				do_switch(&old_current->current_sp, new_thread->current_sp);
-				break;*/
-				
 				printf("\nCurrent thread : %d --- to switch thread: %d NOT POSSIBLE---\n", 
 				current->thread_id, new_thread->thread_id);
-				if ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL)) {
+				if ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL)
+				|| (io_thread_wait_fds != NULL)) {
 					enqueue(&RUNNABLE_Q, new_thread);
-				}
-				else {
-					printf("\nONLY 1 thread ... Current thread : %d --- to switch thread: %d NOT POSSIBLE---\n", 
-					current->thread_id, new_thread->thread_id);
 				}
 			}
 		}
+		
 	}
 }
 
@@ -259,6 +360,15 @@ qthread_t get_new_thread(qthread_attr_t *attr) {
     new_thread->sleeping = 0;
     new_thread->lock_queued = 0;
     return new_thread;
+}
+
+fd_wait_t get_new_fd_wait_node (int fd, int io_type) {
+	fd_wait_t fd_node = (fd_wait_t) malloc (sizeof (struct fd_wait_node));
+	fd_node->fd = fd;
+	fd_node->io_type = io_type;
+	fd_node->io_wait_q = NULL;
+	fd_node->next = NULL;
+	return fd_node;
 }
 
 /* a thread can exit by either returning from its main function or
@@ -354,15 +464,6 @@ int qthread_mutex_lock(qthread_mutex_t *mutex)
 	mutex->owner = current;
 	print_mutex(mutex, "qthread_mutex_lock end : ");
     return 0;
-}
-
-void clear_queue_to_runnable(queue_t *queue) {
-	qthread_t temp = NULL;
-	while (*queue != NULL) {
-		temp = dequeue(&(*queue));
-		temp->lock_queued = 0;
-		enqueue(&RUNNABLE_Q, temp);
-	}
 }
 
 int qthread_mutex_unlock(qthread_mutex_t *mutex)
@@ -469,6 +570,33 @@ int qthread_usleep(long int usecs)
     return 0;
 }
 
+void io_block_thread(int sockfd, int io_type) {
+	fd_wait_t temp = io_thread_wait_fds;
+	fd_wait_t prev = temp;
+	while (temp != NULL) {
+		if ((temp->fd == sockfd) && (temp->io_type == io_type)) {
+			// this is the fd for which the current thread will block
+			enqueue(&temp->io_wait_q, current);
+			break;
+		}
+		prev = temp;
+		temp = temp->next;
+	}
+	if (temp == NULL) {
+		// the fd is not present, need to create a new one
+		fd_wait_t new_fd = get_new_fd_wait_node(sockfd, io_type);
+		enqueue(&new_fd->io_wait_q, current);
+		if (prev != NULL) {
+			// not the first node
+			prev->next = new_fd;
+		}
+		else {
+			io_thread_wait_fds = new_fd;
+		}
+	}
+}
+
+
 /* make sure that the file descriptor is in non-blocking mode, try to
  * read from it, if you get -1 / EAGAIN then add it to the list of
  * file descriptors to go in the big scheduling 'select()' and switch
@@ -482,8 +610,16 @@ ssize_t qthread_read(int sockfd, void *buf, size_t len)
      */
     int tmp = fcntl(sockfd, F_GETFL, 0);
     fcntl(sockfd, F_SETFL, tmp | O_NONBLOCK);
-
-    return 0;
+    
+    int result = read(sockfd, buf, len);
+	while ((result == -1) || (result == EAGAIN)) {
+		io_block_thread(sockfd, READ);
+		current->lock_queued = 1;
+		context_switch();
+		result = read(sockfd, buf, len);
+	}
+	current->lock_queued = 0;
+    return result;
 }
 
 /* like read - make sure the descriptor is in non-blocking mode, check
@@ -493,6 +629,19 @@ ssize_t qthread_read(int sockfd, void *buf, size_t len)
  */
 int qthread_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 {
+    /*int tmp = fcntl(sockfd, F_GETFL, 0);
+    fcntl(sockfd, F_SETFL, tmp | O_NONBLOCK);
+    
+    int result = read(sockfd, buf, len);
+	while ((result == -1) || (result == EAGAIN)) {
+		io_block_thread(sockfd, READ);
+		current->lock_queued = 1;
+		FD_SET(sockfd, &BLOCKING_FD_SET_READ);
+		context_switch();
+		result = read(sockfd, buf, len);
+	}
+	current->lock_queued = 0;
+    return result;*/
     return 0;
 }
 
@@ -502,7 +651,18 @@ int qthread_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
  */
 ssize_t qthread_write(int sockfd, const void *buf, size_t len)
 {
-    return 0;
+    int tmp = fcntl(sockfd, F_GETFL, 0);
+    fcntl(sockfd, F_SETFL, tmp | O_NONBLOCK);
+    
+    int result = write(sockfd, buf, len);
+	while ((result == -1) || (result == EAGAIN)) {
+		io_block_thread(sockfd, WRITE);
+		current->lock_queued = 1;
+		context_switch();
+		result = write(sockfd, buf, len);
+	}
+	current->lock_queued = 0;
+    return result;
 }
 
 /* Wait for a non-detached thread to exit. Returns -1 if the thread
