@@ -95,7 +95,7 @@ fd_wait_t io_thread_wait_fds = NULL;
 qthread_t add_thread_to_list(qthread_t head, qthread_t thread);
 qthread_t dequeue(queue_t *queue_name);
 void enqueue(queue_t *queue_name, qthread_t new_node);
-qthread_t remove_threads_from_list(qthread_t head);
+qthread_t make_woken_threads_runnable(qthread_t head);
 /* debug print functions */
 void print_io(fd_wait_t io, char* msg);
 void print_q(queue_t Q, char* msg);
@@ -255,16 +255,15 @@ fd_wait_t io_unblock_threads(fd_wait_t head) {
  */ 
 void context_switch(void) {
 	qthread_t new_thread = NULL, old_current = NULL;
-
 	while ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL) ||
 	(io_thread_wait_fds != NULL)) {
-		// to check the sleeping threads list if any of 
-		// them are ready to put in runnable queue
 		new_thread = dequeue(&RUNNABLE_Q);
 		if (RUNNABLE_Q == NULL) {
-			sleeping_threads = remove_threads_from_list(sleeping_threads);
+			sleeping_threads = 
+					make_woken_threads_runnable(sleeping_threads);
 			if (RUNNABLE_Q == NULL) 
-				io_thread_wait_fds = io_unblock_threads(io_thread_wait_fds);
+				io_thread_wait_fds = 
+						io_unblock_threads(io_thread_wait_fds);
 		}
 		if ((new_thread != NULL) && 
 		   (new_thread->is_inactive == FALSE) && 
@@ -272,7 +271,8 @@ void context_switch(void) {
 			if (new_thread != current) {
 				old_current = current;
 				current = new_thread;
-				do_switch(&old_current->current_sp, new_thread->current_sp);
+				do_switch(&old_current->current_sp, 
+							new_thread->current_sp);
 				break;
 			}
 			else {
@@ -392,8 +392,8 @@ int qthread_create(qthread_t *thread, qthread_attr_t *attr,
 void qthread_exit(void *val)
 {
     current->is_finished = TRUE;
-    // checking whether it is a detached thread, for which 
-    // return value is not required and it is not required to join
+    /* checking whether it is a detached thread, for which 
+     * return value is not required and it is not required to join */
     if (current->is_detached != 1) {
 		current->return_value = val;
 		while (current->to_join == NULL) {
@@ -776,11 +776,11 @@ qthread_t add_thread_to_list(qthread_t head, qthread_t thread) {
 }
 
 /* *************************************************************** */
-/* remove_threads_from_list
+/* make_woken_threads_runnable
  * Removes threads which are ready to run andputs them in the 
  * Runnable Queue
  */
-qthread_t remove_threads_from_list(qthread_t head) {
+qthread_t make_woken_threads_runnable(qthread_t head) {
 	qthread_t temp = head;
 	qthread_t prev = head;
 	qthread_t to_free = NULL;
