@@ -3,7 +3,7 @@
  * description: simple emulation of POSIX threads
  * class:       CS 7600, Fall 2015
  */
-
+/* ========================= HEADER FILES =========================*/
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -15,16 +15,13 @@
 #include <unistd.h>
 #include <errno.h>
 #include "qthread.h"
-
+/* ============================ MACROS ===========================*/
 #define LOCK 1
 #define UNLOCK 0
 #define READ 0
 #define WRITE 1
 #define FD_MAXSIZE 1024 /* the maximum size of file descriptors list */
 #define START_THREAD_ID 1
-
-fd_set fd_set_read;     /* the fd_set for read */
-fd_set fd_set_write;    /* the fd_set for write */
 
 /*
  * do_switch is defined in do-switch.s, as the stack frame layout
@@ -33,6 +30,7 @@ fd_set fd_set_write;    /* the fd_set for write */
  */
 extern void do_switch(void **location_for_old_sp, void *new_value);
 
+/* ====================== STRUCT qthread =========================*/
 struct qthread {
 	 int thread_id;  /* to store the id of the thread */
 	 int finished;   /* to indicate whether the thread has 
@@ -52,6 +50,7 @@ struct qthread {
                             * in a queue or a list */
 };
 
+/* ===================== STRUCT queue_list ========================*/
 /* A queue structure to save the front and 
  * rear of a queue of threads */
 struct queue_list {
@@ -59,6 +58,7 @@ struct queue_list {
 	qthread_t rear;
 };
 
+/* ===================== STRUCT fd_wait_node ========================*/
 struct fd_wait_node {
 	int fd;
 	int io_type; // 0 = read, 1 = write
@@ -66,6 +66,10 @@ struct fd_wait_node {
 	struct fd_wait_node *next;
 };
 typedef struct fd_wait_node* fd_wait_t;
+
+/* ========================= GLOBAL VARS =========================*/
+fd_set fd_set_read;     /* the fd_set for read */
+fd_set fd_set_write;    /* the fd_set for write */
 
 /* Note that on startup there's already a thread running thread - we
  * need a placeholder 'struct thread' so that we can switch away from
@@ -85,12 +89,20 @@ qthread_t sleeping_threads = NULL;
  * descriptors */
 fd_wait_t io_thread_wait_fds = NULL;  
 
-/* Forward declarations */
+/* =================== FUNCTION DECLARATIONS =======================*/
+/* list modification functions */
 qthread_t add_thread_to_list(qthread_t head, qthread_t thread);
 qthread_t dequeue(queue_t *queue_name);
 void enqueue(queue_t *queue_name, qthread_t new_node);
 qthread_t remove_threads_from_list(qthread_t head);
+/* debug print functions */
+void print_io(fd_wait_t io, char* msg);
+void print_q(queue_t Q, char* msg);
+void print_mutex(qthread_mutex_t *mutex, char* msg);
+void print_threads(qthread_t head, char* msg);
 
+
+/* =================== FUNCTION DEFINITIONS =======================*/
 /*
  * setup_stack(stack, function, arg1, arg2) - sets up a stack so that
  * switching to it from 'do_switch' will call 'function' with arguments
@@ -125,13 +137,14 @@ void *setup_stack(int *stack, void *func, void *arg1, void *arg2)
     return stack;
 }
 
-
-
-/* You'll need to do sub-second arithmetic on time. This is an easy
+/* *************************************************************** */
+/* 
+ * You'll need to do sub-second arithmetic on time. This is an easy
  * way to do it - it returns the current time as a floating point
  * number. The result is as accurate as the clock usleep() uses, so
  * it's fine for us.
  */
+ 
 static double gettime(void)
 {
     struct timeval tv;
@@ -139,78 +152,7 @@ static double gettime(void)
     return tv.tv_sec + tv.tv_usec/1.0e6;
 }
 
-/* 
- * print_q : queue_t char* -> void
- * Prints the given queue Q with msg.
- */
-void print_q(queue_t Q, char* msg) {
-	if (Q == NULL) {
-		printf("\n%s is empty!!!", msg);
-	}
-	else {
-		qthread_t temp = Q->front;
-		printf("\n%s ", msg);
-		while (temp != Q->rear) {
-			printf("%d--%d", temp->thread_id, temp->lock_queued);
-			temp = temp->next;
-		}
-		printf("%d--%d", temp->thread_id, temp->lock_queued);
-	}
-}
-
-/* 
- * print_io : fd_wait_t char* -> void
- * Prints the given file descriptor list io with msg.
- */
-void print_io(fd_wait_t io, char* msg) {
-	if (io == NULL) {
-		printf("\n IO Block list is EMPTY !!");
-	}
-	else {
-		fd_wait_t temp = io;
-		while (temp != NULL) {
-			printf("\n%s, ",msg);
-			printf("IO fd = %d", io->fd);
-			printf("IO type = %d", io->io_type);
-			print_q(io->io_wait_q, "io wait_q");
-			temp = temp->next;
-		}
-	}
-}
-
-/* 
- * print_mutex : qthread_mutex_t* char* -> void
- * Prints the given mutex with msg.
- */
-void print_mutex(qthread_mutex_t *mutex, char* msg) {
-	if (mutex != NULL) {
-	printf("\n%s, ",msg);
-	
-	printf("mutex lock = %d", mutex->lock);
-	if (mutex->owner != NULL) 
-		printf("  Owner = %d ", mutex->owner->thread_id);
-	print_q(mutex->wait_q, "mutex wait_q");
-	}
-}
-
-/*
- * print_threads : qthread_t char* -> void
- * Prints the msg and threads in the list pointed to by head.
- */ 
-void print_threads(qthread_t head, char* msg) {
-	qthread_t temp = head;
-	if (head == NULL) {
-		printf("\n%s EMPTY!!", msg);
-		return;
-	}
-	printf("\n%s : Threads in order are  -- ", msg);
-	while (temp != NULL) {
-		printf("%d--%f ", temp->thread_id, temp->time_to_wake_up);
-		temp = temp->next;
-	}
-	printf("\n");
-}
-
+/* *************************************************************** */
 /*
  * dummy : void* (*func)(void *) void * -> void
  * This is a wrapper function to calling func. It will handle 
@@ -224,6 +166,7 @@ void dummy(void* (*func)(void *), void *arg1) {
 	qthread_exit(retval);
 }
 
+/* *************************************************************** */
 /*
  * clear_queue_to_runnable : queue_t -> void
  * Removes all the elements from queue and enqueues them 
@@ -238,6 +181,7 @@ void clear_queue_to_runnable(queue_t *queue) {
 	}
 }
 
+/* *************************************************************** */
 /*
  * set_select_for_fd_list : fd_wait_t -> void
  * Initializes the fd_sets fd_set_write and fd_set_read and 
@@ -249,8 +193,6 @@ void set_select_for_fd_list(fd_wait_t head) {
 	fd_wait_t temp = head;
 	t.tv_sec = 0;
 	t.tv_usec = 1;
-	//printf("\nio_unblock_threads called .. \n");
-	//print_io(head, "IO BLOCKED THREADS : ");
 	FD_ZERO(&fd_set_write);
 	FD_ZERO(&fd_set_read);
 	while(temp != NULL) {
@@ -264,6 +206,7 @@ void set_select_for_fd_list(fd_wait_t head) {
 	select(FD_MAXSIZE, &fd_set_read, &fd_set_write, NULL, &t);
 }
 
+/* *************************************************************** */
 /*
  * io_unblock_threads : fd_wait_t -> fd_wait_t
  * Unblocks all the threads from the file descriptor list 
@@ -282,14 +225,10 @@ fd_wait_t io_unblock_threads(fd_wait_t head) {
 		fd = temp->fd;
 		if(((FD_ISSET(fd, &fd_set_read)) && (temp->io_type == READ)) || 
 		((FD_ISSET(fd, &fd_set_write)) && (temp->io_type == WRITE))) {
-			//printf("\nio_unblock_threads called .. \n");
-			//print_io(head, "IO BLOCKED THREADS before : ");
-			//print_q(RUNNABLE_Q, "io_unblock_threads 1 Runnable Q : ");
-			//remove the threads from the fd's thread q and
-			//enqueue it to the runnable thread
+			/* remove the threads from the fd's wait q and
+			   enqueue it to the runnable thread  */
 			clear_queue_to_runnable(&temp->io_wait_q);	
-			//print_io(head, "IO BLOCKED THREADS after : ");
-			//print_q(RUNNABLE_Q, "io_unblock_threads 2 Runnable Q : ");
+
 			if (prev == temp) {
 				// the first node
 				prev = temp->next;
@@ -305,70 +244,46 @@ fd_wait_t io_unblock_threads(fd_wait_t head) {
 		}
 		temp = temp->next;
 	}
-	//print_io(head, "IO BLOCKED THREADS final : ");
 	return head;
 }
 
+/* *************************************************************** */
 /*
  * context_switch : void -> void
  * Handles context switch between threads
  */ 
 void context_switch(void) {
 	qthread_t new_thread = NULL, old_current = NULL;
-	//printf("\n ----- context_switch is called -------- \n");
-	//print_q(RUNNABLE_Q, "context_switch 1 Runnable Q : ");
+
 	while ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL) ||
 	(io_thread_wait_fds != NULL)) {
-		
-		//print_threads(sleeping_threads, "Sleeping threads Original ");
-		//printf("\nCurrent time = %f", gettime());
 		// to check the sleeping threads list if any of 
 		// them are ready to put in runnable queue
-		sleeping_threads = remove_threads_from_list(sleeping_threads);
-		//print_threads(sleeping_threads, "Sleeping threads Final ");
-		
-		//print_q(RUNNABLE_Q, "context_switch 2 Runnable Q : ");
 		new_thread = dequeue(&RUNNABLE_Q);
-		//print_q(RUNNABLE_Q, "context_switch 3 Runnable Q : ");
 		if (RUNNABLE_Q == NULL) {
-			io_thread_wait_fds = io_unblock_threads(io_thread_wait_fds);
-		}
-		//print_q(RUNNABLE_Q, "context_switch 4 Runnable Q : ");
-		if (new_thread != NULL) {
-			//printf("\nNew thread not null Current thread : %d --- to switch thread: %d\n", 
-				//current->thread_id, new_thread->thread_id);
-			//printf("\nnew_thread->sleeping = %d, new_thread->lock_queued = %d, new_thread->finished = %d, isDetached = %d", 
-			//new_thread->sleeping, new_thread->lock_queued, 
-			//new_thread->finished, new_thread->isDetached);
-			if (new_thread->to_join != NULL) {
-				//printf(", new_thread->to_join = %d", new_thread->to_join->thread_id);
-			}
+			sleeping_threads = remove_threads_from_list(sleeping_threads);
+			if (RUNNABLE_Q == NULL) 
+				io_thread_wait_fds = io_unblock_threads(io_thread_wait_fds);
 		}
 		if ((new_thread != NULL) && (new_thread->sleeping == 0) && 
 		(new_thread->lock_queued == 0) && (new_thread->finished == 0)) {
-			//printf("\nValid thread-----");
 			if (new_thread != current) {
-				printf("\nCurrent thread : %d --- to switch thread: %d\n", 
-				current->thread_id, new_thread->thread_id);
 				old_current = current;
 				current = new_thread;
 				do_switch(&old_current->current_sp, new_thread->current_sp);
 				break;
 			}
 			else {
-				printf("\nCurrent thread : %d --- to switch thread: %d NOT POSSIBLE---\n", 
-				current->thread_id, new_thread->thread_id);
-				if ((RUNNABLE_Q != NULL) || 
-				(sleeping_threads != NULL) 
+				if ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL) 
 				|| (io_thread_wait_fds != NULL)) {
 					enqueue(&RUNNABLE_Q, new_thread);
 				}
 			}
 		}
-		
 	}
 }
 
+/* *************************************************************** */
 /* qthread_yield - void -> int
  * Enqueues the currently running thread in the Runnable Queue 
  * and invokes to switch to the next runnable thread. 
@@ -376,11 +291,11 @@ void context_switch(void) {
 int qthread_yield(void)
 {
 	enqueue(&RUNNABLE_Q, current);
-	print_q(RUNNABLE_Q, "qthread_yield Runnable Q : ");
 	context_switch();
     return 0;
 }
 
+/* *************************************************************** */
 /* qthread_attr_init : qthread_attr_t -> int
  * Initialize a thread attribute structure. We're using an 'int' for
  * this, so just set it to zero.
@@ -391,6 +306,7 @@ int qthread_attr_init(qthread_attr_t *attr)
     return 0;
 }
 
+/* *************************************************************** */
 /* 
  * qthread_attr_setdetachstate : qthread_attr_t int -> int
  * Sets attr to detachedstate.
@@ -404,6 +320,7 @@ int qthread_attr_setdetachstate(qthread_attr_t *attr, int detachstate)
     return 0;
 }
 
+/* *************************************************************** */
 /*
  * get_new_thread : qthread_attr_t* -> qthread_t
  * Allocates memory for a new thread with attr attributes and 
@@ -425,6 +342,7 @@ qthread_t get_new_thread(qthread_attr_t *attr) {
     return new_thread;
 }
 
+/* *************************************************************** */
 /*
  * get_new_fd_wait_node : int int -> fd_wait_t
  * Allocates memory for a new file descriptor node for holding the 
@@ -441,6 +359,7 @@ fd_wait_t get_new_fd_wait_node (int fd, int io_type) {
 	return fd_node;
 }
 
+/* *************************************************************** */
 /* 
  * qthread_create - qthread_t* qthread_attr_t* 
  * 					qthread_func_ptr_t void* -> int
@@ -459,11 +378,12 @@ int qthread_create(qthread_t *thread, qthread_attr_t *attr,
     (*thread)->current_sp = setup_stack(top_stack, dummy, start, arg);
     (*thread)->thread_stack = buf;
     enqueue(&RUNNABLE_Q, *thread);
-    print_q(RUNNABLE_Q, "qthread_create RUNNABLE Q");
     return 0;
 }
 
-/* qthread_exit - void* -> void
+/* *************************************************************** */
+/* 
+ * qthread_exit - void* -> void
  * If the thread is joinable you need to save 'val' for a
  * future call to qthread_join; otherwise you can free allocated
  * memory. 
@@ -476,61 +396,52 @@ void qthread_exit(void *val)
     if (current->isDetached != 1) {
 		current->return_value = val;
 		while (current->to_join == NULL) {
-			printf("\nfrom qthread_exit: yielding ");
-			//enqueue(&RUNNABLE_Q, current);
-			//print_q(RUNNABLE_Q, "qthread_yield Runnable Q : ");
-			//context_switch();
 			qthread_yield();
 		}
 		enqueue(&RUNNABLE_Q, current->to_join);
-		print_q(RUNNABLE_Q, "qthread_exit Runnable Q : ");
 		//current->to_join = NULL;
 	}
 	//free(current);
 	context_switch();
 }
 
-/* qthread_mutex_init - qthread_mutex_t* qthread_mutexattr_t* -> int
+/* *************************************************************** */
+/* 
+ * qthread_mutex_init - qthread_mutex_t* qthread_mutexattr_t* -> int
  * Initialize a mutex with attributes attr. 
  */
 int qthread_mutex_init(qthread_mutex_t *mutex, qthread_mutexattr_t *attr)
 {
-	//qthread_mutex_t a = {};
 	(*mutex).lock = UNLOCK;
 	(*mutex).owner = NULL;
     (*mutex).wait_q = NULL;
-	//*mutex = a;
-	/*mutex = (qthread_mutex_t *) malloc(sizeof(qthread_mutex_t));
-    (*mutex)->lock = UNLOCK;
-    mutex->owner = NULL;
-    mutex->wait_q = NULL;*/
     return 0;
 }
 
-/* qthread_mutex_destroy - qthread_mutex_t* -> int
+/* *************************************************************** */
+/* 
+ * qthread_mutex_destroy - qthread_mutex_t* -> int
  * Destroy a mutex. 
  */
 int qthread_mutex_destroy(qthread_mutex_t *mutex)
 {
-    //free((*mutex).owner);
     (*mutex).owner = NULL;
     free((*mutex).wait_q);
     (*mutex).lock = 0;
     return 0;
 }
 
-/* qthread_mutex_lock : qthread_mutex_t* -> int
+/* *************************************************************** */
+/* 
+ * qthread_mutex_lock : qthread_mutex_t* -> int
  * Current thread tries to lock the mutex, if possible, 
  * otherwise waits in the mutex queue till lock is obtained.
  */
 int qthread_mutex_lock(qthread_mutex_t *mutex)
 {
-	print_mutex(mutex, "qthread_mutex_lock start : ");
     while (mutex->lock == LOCK) {
 		if ((current->sleeping == 0) && (current->lock_queued == 0)) {
-			printf("\nThread : %d will get queued", current->thread_id);
 			enqueue(&(mutex->wait_q), current);
-			print_q(mutex->wait_q, "mutex->wait_q : ");
 			current->lock_queued = 1;
 			context_switch();
 		}
@@ -538,41 +449,39 @@ int qthread_mutex_lock(qthread_mutex_t *mutex)
 			return 0;
 		}
 	}
-	printf("\nThread %d : Lock obtained !!\n", current->thread_id);
 	mutex->lock = LOCK;
 	mutex->owner = current;
-	print_mutex(mutex, "qthread_mutex_lock end : ");
     return 0;
 }
 
-/* qthread_mutex_unlock : qthread_mutex_t* -> int
+/* *************************************************************** */
+/* 
+ * qthread_mutex_unlock : qthread_mutex_t* -> int
  * Unlocks the mutex and puts all the threads waiting 
  * on this mutex to the runnable queue.
  */
 int qthread_mutex_unlock(qthread_mutex_t *mutex)
 {
-	print_mutex(mutex, "qthread_mutex_unlock start : ");
 	mutex->lock = UNLOCK;
 	mutex->owner = NULL;
 	clear_queue_to_runnable(&mutex->wait_q);
-	print_mutex(mutex, "qthread_mutex_unlock end : ");
-	print_q(RUNNABLE_Q, "qthread_mutex_unlock RUNNABLE Q : ");
     return 0;
 }
 
-/* qthread_cond_init - qthread_cond_t* qthread_condattr_t* -> int
+/* *************************************************************** */
+/* 
+ * qthread_cond_init - qthread_cond_t* qthread_condattr_t* -> int
  * Initialize a condition variable cond. Again we ignore 'attr'.
  */
 int qthread_cond_init(qthread_cond_t *cond, qthread_condattr_t *attr)
 {
-    //qthread_cond_t new_cond = {};
-    //new_cond.cond_q = NULL;
     (*cond).cond_q = NULL;
-    //*cond = new_cond;
     return 0;
 }
 
-/* qthread_cond_destroy - qthread_cond_t* -> int
+/* *************************************************************** */
+/* 
+ * qthread_cond_destroy - qthread_cond_t* -> int
  * Destroy the condition variable cond.
  */
 int qthread_cond_destroy(qthread_cond_t *cond)
@@ -581,26 +490,26 @@ int qthread_cond_destroy(qthread_cond_t *cond)
     return 0;
 }
 
-/* qthread_cond_wait - qthread_cond_t* qthread_mutex_t* -> int
+/* *************************************************************** */
+/* 
+ * qthread_cond_wait - qthread_cond_t* qthread_mutex_t* -> int
  * Unlock the mutex and wait on 'cond' until signalled.
  * lock the mutex again before returning.
  */
 int qthread_cond_wait(qthread_cond_t *cond, qthread_mutex_t *mutex)
 {
-	printf("\n qthread_cond_wait called: ");
-	print_mutex(mutex, "qthread_mutex state: ");
-	print_q(RUNNABLE_Q, "qthread_cond_wait RUNNABLE Q : ");
     if (mutex->owner == current) {
 		qthread_mutex_unlock(mutex);
 		current->lock_queued = 1;  // to avoid scheduling
 		enqueue(&cond->cond_q, current);
-		print_q(cond->cond_q, "cond->cond_q : ");
 		context_switch();
 	}
     return 0;
 }
 
-/* qthread_cond_signal - qthread_cond_t* -> int
+/* *************************************************************** */
+/* 
+ * qthread_cond_signal - qthread_cond_t* -> int
  * Wake one thread waiting on the condition variable cond. 
  * Enqueues the thread on the runnable queue.
  * Not an error if no threads are waiting.
@@ -608,34 +517,29 @@ int qthread_cond_wait(qthread_cond_t *cond, qthread_mutex_t *mutex)
 int qthread_cond_signal(qthread_cond_t *cond)
 {
 	qthread_t temp = NULL;
-	printf("\n qthread_cond_signal called: ");
-	print_q(cond->cond_q, "cond->cond_q initial : ");
 	temp = dequeue(&cond->cond_q);
 	if (temp != NULL) 
 	{
 		temp->lock_queued = 0;
 		enqueue(&RUNNABLE_Q, temp);
 	}
-    print_q(cond->cond_q, "cond->cond_q final : ");
-    print_q(RUNNABLE_Q, "qthread_cond_signal RUNNABLE Q : ");
     return 0;
 }
 
-/* qthread_cond_broadcast - qthread_cond_t* -> int
+/* *************************************************************** */
+/* 
+ * qthread_cond_broadcast - qthread_cond_t* -> int
  * Wake all threads waiting on the condition variable. 
  * Enueues them on the runnable queue.
  * Not an error if no threads are waiting.
  */
 int qthread_cond_broadcast(qthread_cond_t *cond)
 {
-	printf("\n qthread_cond_signal called: ");
-	print_q(cond->cond_q, "cond->cond_q initial : ");
     clear_queue_to_runnable(&cond->cond_q);
-    print_q(cond->cond_q, "cond->cond_q final : ");
-    print_q(RUNNABLE_Q, "qthread_cond_broadcast RUNNABLE Q : ");
     return 0;
 }
 
+/* *************************************************************** */
 /* POSIX replacement API. These are all the functions (well, the ones
  * used by the sample application) that might block.
  *
@@ -654,8 +558,6 @@ int qthread_usleep(long int usecs)
 {
 	if (current->finished == 0) {
 	current->time_to_wake_up = gettime() + (usecs/1.0e6);
-	printf("\nto add sleeping threads: usecs = %ld for thread = %d", 
-	usecs, current->thread_id);
     sleeping_threads = add_thread_to_list(sleeping_threads, current);
     current->sleeping = 1;
     context_switch();
@@ -663,6 +565,7 @@ int qthread_usleep(long int usecs)
     return 0;
 }
 
+/* *************************************************************** */
 /*
  * io_block_thread : int int -> void
  * Blocks the current thread for file descriptor sockfd and 
@@ -694,7 +597,7 @@ void io_block_thread(int sockfd, int io_type) {
 	}
 }
 
-
+/* *************************************************************** */
 /* make sure that the file descriptor is in non-blocking mode, try to
  * read from it, if you get -1 / EAGAIN then add it to the list of
  * file descriptors to go in the big scheduling 'select()' and switch
@@ -720,12 +623,14 @@ ssize_t qthread_read(int sockfd, void *buf, size_t len)
     return result;
 }
 
+/* *************************************************************** */
 /* like read - make sure the descriptor is in non-blocking mode, check
  * if if there's anything there - if so, return it, otherwise save fd
  * and switch to another thread. Note that accept() counts as a 'read'
  * for the select call.
  */
-int qthread_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
+int qthread_accept(int sockfd, struct sockaddr *addr, 
+					socklen_t *addrlen)
 {
     int tmp = fcntl(sockfd, F_GETFL, 0);
     fcntl(sockfd, F_SETFL, tmp | O_NONBLOCK);
@@ -738,10 +643,10 @@ int qthread_accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen)
 		result = read(sockfd, addr, *addrlen);
 	}
 	current->lock_queued = 0;
-    //return result;
     return 0;
 }
 
+/* *************************************************************** */
 /* Like read, again. Note that this is an output, rather than an input
  * - it can block if the network is slow, although it's not likely to
  * in most of our testing.
@@ -762,6 +667,7 @@ ssize_t qthread_write(int sockfd, const void *buf, size_t len)
     return result;
 }
 
+/* *************************************************************** */
 /* Wait for a non-detached thread to exit. Returns -1 if the thread
  * does not exist or is not joinable, returns 0 otherwise, and places
  * the exit value (passed to qthread_exit(), or return value from thread
@@ -769,20 +675,17 @@ ssize_t qthread_write(int sockfd, const void *buf, size_t len)
  */
 int qthread_join(qthread_t thread, void **retval)
 {
-	printf("\n---- join invoked ---\n");
     if ((thread == NULL) || (thread->isDetached == 1))
 		return -1;	
-	printf("\nsetting thread to join: child = %d, parent = %d\n",
-	thread->thread_id, current->thread_id);
 	thread->to_join = current;
 	context_switch();
-	//qthread_yield();
 	if (retval != NULL) {
 		*retval = thread->return_value;
 	}
     return 0;
 }
 
+/* *************************************************************** */
 /* 
  * enqueue : queue_t* qthread_t -> void
  * Adds new_node at the end of the queue if it exists,
@@ -803,6 +706,7 @@ void enqueue(queue_t *queue_name, qthread_t new_node) {
 	}
 }
 
+/* *************************************************************** */
 /* 
  * dequeue : queue_t -> qthread_t
  * Removes and returns a node from the front of the queue 
@@ -814,7 +718,7 @@ qthread_t dequeue(queue_t *queue_name) {
 		if ((*queue_name)->front == (*queue_name)->rear) {
 			removed_node = (*queue_name)->front;
 			// freeing memory space of the queue
-			//free(*queue_name);
+			free(*queue_name);
 			*queue_name = NULL;
 		}
 		else {
@@ -826,6 +730,7 @@ qthread_t dequeue(queue_t *queue_name) {
 	return removed_node;
 }
 
+/* *************************************************************** */
 /* 
  * add_thread_to_list : qthread_t qthread_t -> qthread_t
  * Adds the given thread to the list of threads pointed to by head 
@@ -870,6 +775,7 @@ qthread_t add_thread_to_list(qthread_t head, qthread_t thread) {
 	return head;
 }
 
+/* *************************************************************** */
 /* remove_threads_from_list
  * Removes threads which are ready to run andputs them in the 
  * Runnable Queue
@@ -883,7 +789,6 @@ qthread_t remove_threads_from_list(qthread_t head) {
 		temp->sleeping = 0;
 		temp->time_to_wake_up = 0;
 		enqueue(&RUNNABLE_Q, temp);
-		printf("\nPut thread = %d from SLEEP to RUN", temp->thread_id);
 		// remove this thread from this list
 		if (prev == temp) {
 			// the first node
@@ -894,15 +799,88 @@ qthread_t remove_threads_from_list(qthread_t head) {
 			// this is not the first node
 			prev->next = temp->next;
 		}
-		//prev = temp;
-		//to_free = temp;
-		//free(to_free);
 		temp = temp->next;
 	}
 	return head;
 }
 
+/* *************************************************************** */
+/* 
+ * print_q : queue_t char* -> void
+ * Prints the given queue Q with msg.
+ */
+void print_q(queue_t Q, char* msg) {
+	if (Q == NULL) {
+		printf("\n%s is empty!!!", msg);
+	}
+	else {
+		qthread_t temp = Q->front;
+		printf("\n%s ", msg);
+		while (temp != Q->rear) {
+			printf("%d--%d", temp->thread_id, temp->lock_queued);
+			temp = temp->next;
+		}
+		printf("%d--%d", temp->thread_id, temp->lock_queued);
+	}
+}
 
+/* *************************************************************** */
+/* 
+ * print_io : fd_wait_t char* -> void
+ * Prints the given file descriptor list io with msg.
+ */
+void print_io(fd_wait_t io, char* msg) {
+	if (io == NULL) {
+		printf("\n IO Block list is EMPTY !!");
+	}
+	else {
+		fd_wait_t temp = io;
+		while (temp != NULL) {
+			printf("\n%s, ",msg);
+			printf("IO fd = %d", io->fd);
+			printf("IO type = %d", io->io_type);
+			print_q(io->io_wait_q, "io wait_q");
+			temp = temp->next;
+		}
+	}
+}
+
+/* *************************************************************** */
+/* 
+ * print_mutex : qthread_mutex_t* char* -> void
+ * Prints the given mutex with msg.
+ */
+void print_mutex(qthread_mutex_t *mutex, char* msg) {
+	if (mutex != NULL) {
+	printf("\n%s, ",msg);
+	
+	printf("mutex lock = %d", mutex->lock);
+	if (mutex->owner != NULL) 
+		printf("  Owner = %d ", mutex->owner->thread_id);
+	print_q(mutex->wait_q, "mutex wait_q");
+	}
+}
+
+/* *************************************************************** */
+/*
+ * print_threads : qthread_t char* -> void
+ * Prints the msg and threads in the list pointed to by head.
+ */ 
+void print_threads(qthread_t head, char* msg) {
+	qthread_t temp = head;
+	if (head == NULL) {
+		printf("\n%s EMPTY!!", msg);
+		return;
+	}
+	printf("\n%s : Threads in order are  -- ", msg);
+	while (temp != NULL) {
+		printf("%d--%f ", temp->thread_id, temp->time_to_wake_up);
+		temp = temp->next;
+	}
+	printf("\n");
+}
+
+/* *************************************************************** */
 /* 
  * test_for_list_operations : int -> void
  * The test function to test functionality of 
@@ -936,3 +914,4 @@ int test_for_list_operations() {
 	head = add_thread_to_list(head, get_new_thread(NULL));
 	head = add_thread_to_list(head, get_new_thread(NULL));
 }
+/* *************************************************************** */
