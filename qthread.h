@@ -71,8 +71,6 @@ int qthread_cond_wait(qthread_cond_t *cond, qthread_mutex_t *mutex);
 int qthread_cond_signal(qthread_cond_t *cond);
 int qthread_cond_broadcast(qthread_cond_t *cond);
 
-
-
 /* POSIX replacement API. Not general, but enough to run a
  * multi-threaded webserver. 
  */
