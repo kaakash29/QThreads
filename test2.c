@@ -178,12 +178,15 @@ void* counters_th2() {
 }
 
 void test6() {
+	qthread_attr_t *attr;
+	qthread_attr_init(attr);
+	qthread_attr_setdetachstate(attr, 1);
 	qthread_t th1 = NULL, th2 = NULL;
 	counter = 0;
 	qthread_mutex_init(&lock, NULL);
 	// this is a detached thread
 	qthread_create(&th1, NULL, counters_th1, NULL);
-	qthread_create(&th2, (void*) 1, counters_th2, NULL);
+	qthread_create(&th2, attr, counters_th2, NULL);
 	
 	void* retval;
 	qthread_join(th1, &retval);
@@ -198,12 +201,15 @@ void test6() {
  * the list/queue operations.
  */
 void test7() {
+	qthread_attr_t *attr;
+	qthread_attr_init(attr);
+	qthread_attr_setdetachstate(attr, 1);
 	qthread_t th1 = NULL, th2 = NULL;
 	counter = 0;
 	qthread_mutex_init(&lock, NULL);
 	// this is a detached thread
 	qthread_create(&th1, NULL, counters_th1, NULL);
-	qthread_create(&th2, (void*) 1, counters_th2, NULL);
+	qthread_create(&th2, attr, counters_th2, NULL);
 	
 	void* retval;
 	qthread_join(th1, &retval);
@@ -217,11 +223,14 @@ void test7() {
  * the list/queue operations.
  */
 void test8() {
+	qthread_attr_t *attr;
+	qthread_attr_init(attr);
+	qthread_attr_setdetachstate(attr, 1);
 	qthread_t th1 = NULL, th2 = NULL;
 	counter = 0;
 	qthread_mutex_init(&lock, NULL);
 	// this is a detached thread
-	qthread_create(&th1, (void*) 1, counters_th1, NULL);
+	qthread_create(&th1, attr, counters_th1, NULL);
 	qthread_create(&th2, NULL, counters_th2, NULL);
 	
 	void* retval;

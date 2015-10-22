@@ -183,11 +183,14 @@ void print_io(fd_wait_t io, char* msg) {
  * Prints the given mutex with msg.
  */
 void print_mutex(qthread_mutex_t *mutex, char* msg) {
+	if (mutex != NULL) {
 	printf("\n%s, ",msg);
+	
 	printf("mutex lock = %d", mutex->lock);
 	if (mutex->owner != NULL) 
 		printf("  Owner = %d ", mutex->owner->thread_id);
 	print_q(mutex->wait_q, "mutex wait_q");
+	}
 }
 
 /*
@@ -246,8 +249,8 @@ void set_select_for_fd_list(fd_wait_t head) {
 	fd_wait_t temp = head;
 	t.tv_sec = 0;
 	t.tv_usec = 1;
-	printf("\nio_unblock_threads called .. \n");
-	print_io(head, "IO BLOCKED THREADS : ");
+	//printf("\nio_unblock_threads called .. \n");
+	//print_io(head, "IO BLOCKED THREADS : ");
 	FD_ZERO(&fd_set_write);
 	FD_ZERO(&fd_set_read);
 	while(temp != NULL) {
@@ -279,9 +282,14 @@ fd_wait_t io_unblock_threads(fd_wait_t head) {
 		fd = temp->fd;
 		if(((FD_ISSET(fd, &fd_set_read)) && (temp->io_type == READ)) || 
 		((FD_ISSET(fd, &fd_set_write)) && (temp->io_type == WRITE))) {
+			//printf("\nio_unblock_threads called .. \n");
+			//print_io(head, "IO BLOCKED THREADS before : ");
+			//print_q(RUNNABLE_Q, "io_unblock_threads 1 Runnable Q : ");
 			//remove the threads from the fd's thread q and
 			//enqueue it to the runnable thread
 			clear_queue_to_runnable(&temp->io_wait_q);	
+			//print_io(head, "IO BLOCKED THREADS after : ");
+			//print_q(RUNNABLE_Q, "io_unblock_threads 2 Runnable Q : ");
 			if (prev == temp) {
 				// the first node
 				prev = temp->next;
@@ -297,6 +305,7 @@ fd_wait_t io_unblock_threads(fd_wait_t head) {
 		}
 		temp = temp->next;
 	}
+	//print_io(head, "IO BLOCKED THREADS final : ");
 	return head;
 }
 
@@ -306,8 +315,8 @@ fd_wait_t io_unblock_threads(fd_wait_t head) {
  */ 
 void context_switch(void) {
 	qthread_t new_thread = NULL, old_current = NULL;
-	printf("\n ----- context_switch called -------- \n");
-	print_q(RUNNABLE_Q, "Runnable Q : ");
+	//printf("\n ----- context_switch is called -------- \n");
+	//print_q(RUNNABLE_Q, "context_switch 1 Runnable Q : ");
 	while ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL) ||
 	(io_thread_wait_fds != NULL)) {
 		
@@ -315,21 +324,29 @@ void context_switch(void) {
 		//printf("\nCurrent time = %f", gettime());
 		// to check the sleeping threads list if any of 
 		// them are ready to put in runnable queue
-		
+		sleeping_threads = remove_threads_from_list(sleeping_threads);
 		//print_threads(sleeping_threads, "Sleeping threads Final ");
 		
-		print_q(RUNNABLE_Q, "Runnable Q : ");
+		//print_q(RUNNABLE_Q, "context_switch 2 Runnable Q : ");
 		new_thread = dequeue(&RUNNABLE_Q);
-		
+		//print_q(RUNNABLE_Q, "context_switch 3 Runnable Q : ");
 		if (RUNNABLE_Q == NULL) {
-			sleeping_threads = remove_threads_from_list(sleeping_threads);
-			if (RUNNABLE_Q == NULL) {
-				io_thread_wait_fds = io_unblock_threads(io_thread_wait_fds);
+			io_thread_wait_fds = io_unblock_threads(io_thread_wait_fds);
+		}
+		//print_q(RUNNABLE_Q, "context_switch 4 Runnable Q : ");
+		if (new_thread != NULL) {
+			//printf("\nNew thread not null Current thread : %d --- to switch thread: %d\n", 
+				//current->thread_id, new_thread->thread_id);
+			//printf("\nnew_thread->sleeping = %d, new_thread->lock_queued = %d, new_thread->finished = %d, isDetached = %d", 
+			//new_thread->sleeping, new_thread->lock_queued, 
+			//new_thread->finished, new_thread->isDetached);
+			if (new_thread->to_join != NULL) {
+				//printf(", new_thread->to_join = %d", new_thread->to_join->thread_id);
 			}
 		}
-		
 		if ((new_thread != NULL) && (new_thread->sleeping == 0) && 
 		(new_thread->lock_queued == 0) && (new_thread->finished == 0)) {
+			//printf("\nValid thread-----");
 			if (new_thread != current) {
 				printf("\nCurrent thread : %d --- to switch thread: %d\n", 
 				current->thread_id, new_thread->thread_id);
@@ -341,7 +358,8 @@ void context_switch(void) {
 			else {
 				printf("\nCurrent thread : %d --- to switch thread: %d NOT POSSIBLE---\n", 
 				current->thread_id, new_thread->thread_id);
-				if ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL)
+				if ((RUNNABLE_Q != NULL) || 
+				(sleeping_threads != NULL) 
 				|| (io_thread_wait_fds != NULL)) {
 					enqueue(&RUNNABLE_Q, new_thread);
 				}
@@ -358,6 +376,7 @@ void context_switch(void) {
 int qthread_yield(void)
 {
 	enqueue(&RUNNABLE_Q, current);
+	print_q(RUNNABLE_Q, "qthread_yield Runnable Q : ");
 	context_switch();
     return 0;
 }
@@ -395,7 +414,7 @@ qthread_t get_new_thread(qthread_attr_t *attr) {
     new_thread->thread_id = thread_id++;
     new_thread->thread_stack = NULL;
     new_thread->current_sp = NULL;
-    new_thread->isDetached = (attr == NULL? 0 : (int)attr);
+    new_thread->isDetached = (attr == NULL? 0 : (int)*attr);
     new_thread->time_to_wake_up = 0;
     new_thread->return_value = (void*) 0;
     new_thread->to_join = NULL;
@@ -440,7 +459,7 @@ int qthread_create(qthread_t *thread, qthread_attr_t *attr,
     (*thread)->current_sp = setup_stack(top_stack, dummy, start, arg);
     (*thread)->thread_stack = buf;
     enqueue(&RUNNABLE_Q, *thread);
-    print_q(RUNNABLE_Q, "RUNNABLE Q");
+    print_q(RUNNABLE_Q, "qthread_create RUNNABLE Q");
     return 0;
 }
 
@@ -457,12 +476,17 @@ void qthread_exit(void *val)
     if (current->isDetached != 1) {
 		current->return_value = val;
 		while (current->to_join == NULL) {
+			printf("\nfrom qthread_exit: yielding ");
+			//enqueue(&RUNNABLE_Q, current);
+			//print_q(RUNNABLE_Q, "qthread_yield Runnable Q : ");
+			//context_switch();
 			qthread_yield();
 		}
 		enqueue(&RUNNABLE_Q, current->to_join);
-		current->to_join = NULL;
+		print_q(RUNNABLE_Q, "qthread_exit Runnable Q : ");
+		//current->to_join = NULL;
 	}
-	free(current);
+	//free(current);
 	context_switch();
 }
 
@@ -471,10 +495,15 @@ void qthread_exit(void *val)
  */
 int qthread_mutex_init(qthread_mutex_t *mutex, qthread_mutexattr_t *attr)
 {
-	mutex = (qthread_mutex_t *) malloc(sizeof(qthread_mutex_t));
-    mutex->lock = UNLOCK;
+	//qthread_mutex_t a = {};
+	(*mutex).lock = UNLOCK;
+	(*mutex).owner = NULL;
+    (*mutex).wait_q = NULL;
+	//*mutex = a;
+	/*mutex = (qthread_mutex_t *) malloc(sizeof(qthread_mutex_t));
+    (*mutex)->lock = UNLOCK;
     mutex->owner = NULL;
-    mutex->wait_q = NULL;
+    mutex->wait_q = NULL;*/
     return 0;
 }
 
@@ -483,9 +512,10 @@ int qthread_mutex_init(qthread_mutex_t *mutex, qthread_mutexattr_t *attr)
  */
 int qthread_mutex_destroy(qthread_mutex_t *mutex)
 {
-    free(mutex->owner);
-    free(mutex->wait_q);
-    mutex->lock = 0;
+    //free((*mutex).owner);
+    (*mutex).owner = NULL;
+    free((*mutex).wait_q);
+    (*mutex).lock = 0;
     return 0;
 }
 
@@ -526,7 +556,7 @@ int qthread_mutex_unlock(qthread_mutex_t *mutex)
 	mutex->owner = NULL;
 	clear_queue_to_runnable(&mutex->wait_q);
 	print_mutex(mutex, "qthread_mutex_unlock end : ");
-	print_q(RUNNABLE_Q, "RUNNABLE Q : ");
+	print_q(RUNNABLE_Q, "qthread_mutex_unlock RUNNABLE Q : ");
     return 0;
 }
 
@@ -535,8 +565,10 @@ int qthread_mutex_unlock(qthread_mutex_t *mutex)
  */
 int qthread_cond_init(qthread_cond_t *cond, qthread_condattr_t *attr)
 {
-    cond = (qthread_cond_t *) malloc (sizeof(qthread_cond_t));
-    cond->cond_q = NULL;
+    //qthread_cond_t new_cond = {};
+    //new_cond.cond_q = NULL;
+    (*cond).cond_q = NULL;
+    //*cond = new_cond;
     return 0;
 }
 
@@ -557,7 +589,7 @@ int qthread_cond_wait(qthread_cond_t *cond, qthread_mutex_t *mutex)
 {
 	printf("\n qthread_cond_wait called: ");
 	print_mutex(mutex, "qthread_mutex state: ");
-	print_q(RUNNABLE_Q, "RUNNABLE Q : ");
+	print_q(RUNNABLE_Q, "qthread_cond_wait RUNNABLE Q : ");
     if (mutex->owner == current) {
 		qthread_mutex_unlock(mutex);
 		current->lock_queued = 1;  // to avoid scheduling
@@ -585,7 +617,7 @@ int qthread_cond_signal(qthread_cond_t *cond)
 		enqueue(&RUNNABLE_Q, temp);
 	}
     print_q(cond->cond_q, "cond->cond_q final : ");
-    print_q(RUNNABLE_Q, "RUNNABLE Q : ");
+    print_q(RUNNABLE_Q, "qthread_cond_signal RUNNABLE Q : ");
     return 0;
 }
 
@@ -600,7 +632,7 @@ int qthread_cond_broadcast(qthread_cond_t *cond)
 	print_q(cond->cond_q, "cond->cond_q initial : ");
     clear_queue_to_runnable(&cond->cond_q);
     print_q(cond->cond_q, "cond->cond_q final : ");
-    print_q(RUNNABLE_Q, "RUNNABLE Q : ");
+    print_q(RUNNABLE_Q, "qthread_cond_broadcast RUNNABLE Q : ");
     return 0;
 }
 
@@ -740,8 +772,11 @@ int qthread_join(qthread_t thread, void **retval)
 	printf("\n---- join invoked ---\n");
     if ((thread == NULL) || (thread->isDetached == 1))
 		return -1;	
+	printf("\nsetting thread to join: child = %d, parent = %d\n",
+	thread->thread_id, current->thread_id);
 	thread->to_join = current;
 	context_switch();
+	//qthread_yield();
 	if (retval != NULL) {
 		*retval = thread->return_value;
 	}
@@ -779,7 +814,7 @@ qthread_t dequeue(queue_t *queue_name) {
 		if ((*queue_name)->front == (*queue_name)->rear) {
 			removed_node = (*queue_name)->front;
 			// freeing memory space of the queue
-			free(*queue_name);
+			//free(*queue_name);
 			*queue_name = NULL;
 		}
 		else {
@@ -842,6 +877,7 @@ qthread_t add_thread_to_list(qthread_t head, qthread_t thread) {
 qthread_t remove_threads_from_list(qthread_t head) {
 	qthread_t temp = head;
 	qthread_t prev = head;
+	qthread_t to_free = NULL;
 	while ((temp != NULL) && (temp->time_to_wake_up <= gettime())) {
 		// add to runnable queue
 		temp->sleeping = 0;
@@ -859,6 +895,8 @@ qthread_t remove_threads_from_list(qthread_t head) {
 			prev->next = temp->next;
 		}
 		//prev = temp;
+		//to_free = temp;
+		//free(to_free);
 		temp = temp->next;
 	}
 	return head;
