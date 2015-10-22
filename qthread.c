@@ -635,15 +635,16 @@ int qthread_accept(int sockfd, struct sockaddr *addr,
     int tmp = fcntl(sockfd, F_GETFL, 0);
     fcntl(sockfd, F_SETFL, tmp | O_NONBLOCK);
     
-    int result = read(sockfd, addr, *addrlen);
+    int result = accept(sockfd, addr, addrlen);
 	while ((result == -1) || (result == EAGAIN)) {
+		printf("switching\n");
 		io_block_thread(sockfd, READ);
 		current->lock_queued = 1;
 		context_switch();
-		result = read(sockfd, addr, *addrlen);
+		result = accept(sockfd, addr, addrlen);
 	}
 	current->lock_queued = 0;
-    return 0;
+    return result;
 }
 
 /* *************************************************************** */
