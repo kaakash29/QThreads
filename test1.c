@@ -1,9 +1,8 @@
-/*
- * file:        test1.c
+/* File       : test1.c
  * description: test file for qthreads (homework 1)
- *
  */
 
+//################## INCLUDES FOR TESTS #############################
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -12,9 +11,13 @@
 #include <fcntl.h>
 #include <string.h>
 
+
+//################## MACROS ########################################
 #define SIZE 30
 
-/* 0. create and join. Create 1 thread, which don't do anything
+
+//############### TEST FUNCTIONS ###################################
+/* TEST 0. create and join. Create 1 thread, which don't do anything
  * except return a value.and possibly print something Call
  * qthread_join() to wait for it.
  */
@@ -31,9 +34,8 @@ void test0(void)
     assert(i == j);
     printf("test 0 OK\n");
 }
-//----
-
-/* 1. create and join. Create N threads, which don't do anything
+//#################################################################
+/* TEST1. create and join. Create N threads, which don't do anything
  * except return a value. (and possibly print something) Call
  * qthread_join() to wait for each of them.
  */
@@ -47,17 +49,15 @@ void test1(void)
         qthread_join(t[i], (void**)&j);
         assert(i == j);
     }
-    printf("test 1 OK\n");
 }
-//----
 
-
-/* 2. mutex and sleep.
+//###############################################################
+/* TEST2. mutex and sleep.
  * initialize a mutex
  * Create thread 1, which locks a mutex and goes to sleep for a
  * second or two using qthread_usleep.
- *   (you can wait for this by calling qthread_yield repeatedly,
- *    waiting for thread 1 to set a global variable)
+ * you can wait for this by calling qthread_yield repeatedly,
+ * waiting for thread 1 to set a global variable)
  * threads 2..N try to lock the mutex
  * after thread 1 wakes up it releases the mutex; 
  * threads 2..N each release the mutex after getting it.
@@ -89,24 +89,25 @@ void test2(void)
 {
     qthread_t t0, t[10];
     int i;
+    void *val;
     
     qthread_mutex_init(&m, NULL);
     qthread_create(&t0, NULL, f2, NULL);
+
     while (!t1rdy)
       qthread_yield();
+
     for (i = 0; i < 4; i++)
         qthread_create(&t[i], NULL, f3, NULL);
 
-    void *val;
     qthread_join(t0, &val);
     for (i = 0; i < 4; i++)
         qthread_join(t[i], &val);
-    
-    printf("test 2 done\n");
 }
-//-----
 
-/* test4 : Checks if a thread can join before it has been created 
+
+//###################################################################
+/* TEST4 : Checks if a thread can join before it has been created 
  * Calls qthread join to join a thread which has not yet been created
  */
 int test4(void) {
@@ -116,17 +117,16 @@ int test4(void) {
 	qthread_create(&t1, NULL, f1, NULL);
 	
 }
-//----
 
-
-/* test5 : to test that only a single thread will execute using 
+//###################################################################
+/* TEST5 : to test that only a single thread will execute using 
  * our library. creates a thread which hogs up the memory and never
  * lets go doesn't let thread2 to start
  */
 void * thread1(){
-	 while(1){
-        printf("Hello!!\n");
-	 }
+	while(1){
+	        printf("Hello!!\n");
+	}
 }
 
 void * thread2(){
@@ -142,11 +142,10 @@ int test5(void) {
     qthread_join(t1,NULL);
     qthread_join(t2,NULL);	
 }
-//-------
 
 
-
-/* test6 : int -> void
+//####################################################################
+/* TEST6 : int -> void
  * The test function to test functionality of 
  * the list/queue operations.
  */
@@ -191,11 +190,10 @@ void test6() {
 	void* retval;
 	qthread_join(th1, &retval);
 	qthread_join(th2, &retval);
-	printf("\nTest 6 done\n");
 }
-//-------
 
 
+//##################################################################
 /* test7 : int -> void
  * The test function to test functionality of 
  * the list/queue operations.
@@ -214,10 +212,10 @@ void test7() {
 	void* retval;
 	qthread_join(th1, &retval);
 	//qthread_join(th2, &retval);
-	printf("\nTest 7 done\n");
-}
-//-------
 
+}
+
+//###################################################################
 /* test8 : int -> void
  * The test function to test functionality of 
  * the list/queue operations.
@@ -236,10 +234,9 @@ void test8() {
 	void* retval;
 	//qthread_join(th1, &retval);
 	qthread_join(th2, &retval);
-	printf("\nTest 8 done\n");
 }
-//-------
 
+//###################################################################
 /* test9 : int -> void
  * The test function to test functionality of 
  * the list/queue operations.
@@ -265,8 +262,8 @@ void test9() {
 	qthread_join(th2, &ret);
 	qthread_join(th1, &ret);
 }
-//----
 
+//###################################################################
 /* test10 : int -> void
  * The test function to test functionality of 
  * the list/queue operations.
@@ -281,20 +278,18 @@ void test10() {
 	void* retval;
 	qthread_join(th1, &retval);
 	qthread_join(th2, &retval);
-	printf("\nTest 10 done\n");
 }
 
-
-
-
-/* test_detach - tests a detached thread that does nothing but yielding 
+//###################################################################
+/* TEST11- tests a detached thread that does nothing but yielding 
  * the control back to the scheduler.
  * */
+
 void* f6(void* v) {
   qthread_yield();
 }
 
-void test_detach(void) {
+void test11(void) {
   qthread_t t0;
   qthread_attr_t t0a;
   qthread_attr_setdetachstate(&t0a, 1); 
@@ -303,47 +298,46 @@ void test_detach(void) {
   qthread_yield();
 }
 
-//-------
-
-
-/* test_join_first - tests the qthread_exit function for a 
+//###################################################################
+/* TEST12 - tests the qthread_exit function for a 
  * joinable thread creates a thread to return a value 2
  * */
+
 void* f7(void* inp) {
   qthread_exit((void*)2);
 }
 
-void test_join_first(void) {
+void test12(void) {
   qthread_t t0;
   void* output;
   qthread_create(&t0, NULL, f7, NULL);
   qthread_join(t0, &output);
   assert((int)output == 2);
-  printf("test_join_first done");
 }
-//----
 
-
-/* test_join_zombie : tests whether zombie threads are being created 
+//###################################################################
+/* TEST13 : tests whether zombie threads are being created 
  * if parent yields before calling join
  * */
-void test_join_zombie(void) {
+void test13(void) {
   qthread_t t0;
   void* output;
   qthread_create(&t0, NULL, f7, NULL);
   qthread_yield();
   qthread_join(t0, &output);
   assert((int)output == 2);
-  printf("test_join_zombie done");
 }
 
-/* test_sleep_main : tests if calling usleep on the main thread works */
-void test_sleep_main(void) {
+//###################################################################
+/* TEST14 : tests if calling usleep on the main thread works 
+ * */
+
+void test14(void) {
   qthread_usleep(2000000);
 }
-//----
 
-/* test_sleep_thread : tests if creating a thread which does nothing 
+//###################################################################-
+/* TEST15 : tests if creating a thread which does nothing 
  * but sleeps works
  * */
 void *s2(void *v) {
@@ -351,18 +345,18 @@ void *s2(void *v) {
   return 0;
 }
 
-void test_sleep_thread(void) {
+void test15(void) {
   qthread_t t0;
   void* output;
   qthread_create(&t0, NULL, s2, NULL);
   qthread_yield();
   qthread_join(t0, &output);
   assert((int)output == 0);
-  printf("test_sleep_thread done"); 
 }
-//----
 
-/* test_sleep_mutex_detached: tests if possible its to acquire a mutex 
+
+//###################################################################
+/* TEST16: tests if possible its to acquire a mutex 
  * locked by a detached thread.
  * */
 void *s3(void *v) {
@@ -372,7 +366,7 @@ void *s3(void *v) {
   qthread_exit((void*)0);
 }
 
-void test_sleep_mutex_detached(void) {
+void test16(void) {
   qthread_mutex_init(&m, NULL);
   qthread_t t0;
   void* output;
@@ -383,9 +377,12 @@ void test_sleep_mutex_detached(void) {
   qthread_mutex_lock(&m);
   qthread_mutex_unlock(&m);
 }
-//---
 
-void test_read(void) {
+//###################################################################
+/* TEST 17 : Tests if teh read function call works in 
+ * non blocking mode in a thread 
+ * */
+void test17(void) {
   int fd = open("test1.c", O_RDONLY);
   char buf[50000];
   qthread_read(fd, buf, 50000);
@@ -393,8 +390,9 @@ void test_read(void) {
   return;
 }
 
- /* 4. read/write
- * create a pipe ('int fd[2]; pipe(fd);')
+
+//###################################################################
+ /* TEST 18: create a pipe ('int fd[2]; pipe(fd);')
  * create 2 threads:
  * one sleeps and then writes to the pipe
  * one reads from the pipe. [this tests blocking read]
@@ -417,7 +415,7 @@ void *w1(void *v) {
   qthread_exit((void*)0);
 }
 
-void test_read_write(void) {
+void test18(void) {
   int fd[2]; pipe(fd);
   qthread_t r, w;
   void* output;
@@ -429,10 +427,10 @@ void test_read_write(void) {
   qthread_join(w, &output);
 }
 
-/* 
- * test17 : producer consumer problem
+//###################################################################
+/* TEST19 : Test a solution for the producer consumer problem using
+ * qthreads mutex and locks. 
  */
-
 char buffer[SIZE];
 int count = 0, head = 0, tail = 0;
 qthread_mutex_t l;
@@ -502,48 +500,35 @@ void producer_consumer() {
 	qthread_cond_destroy(&notFull);
 	qthread_mutex_destroy(&l);
 }
-//----
 
-/* 3. condvar and sleep.
-* 	initialize a condvar and a mutex
-* 	create N threads, each of which locks the mutex, increments a
-*   global count, and waits on the condvar; after the wait it
-*   decrements the count and releases the mutex.
-* 	call qthread_yield until count indicates all threads are waiting
-* 	call qthread_signal, qthread_yield until count indicates a
-*   thread has left. repeat.
-*/
-//      YET TO WRITE
-//----
-
-
+void test19(){
+	producer_consumer();
+}
 
 /***************************************
  * MAIN - CALL ALL TEST FUNCTIONS HERE
  ***************************************/
 int main(int argc, char **argv)
 {
-    test0(); printf("\ntest0 Done !!!");fflush(stdout);
-    test1(); printf("\ntest1 Done !!!");fflush(stdout);
-    test2(); printf("\ntest2 Done !!!");fflush(stdout);
-    //leave commented //test3(); printf("\ntest3 Done !!!");fflush(stdout); 
-    test4(); printf("\ntest4 Done !!!");fflush(stdout);
-    //leave commented //test5(); printf("test5 Done !!!");fflush(stdout);
-    test6(); printf("\ntest6 Done !!!");fflush(stdout);
-    test7(); printf("\ntest7 Done !!!");fflush(stdout);
-    test8(); printf("\ntest8 Done !!!");fflush(stdout);
-    test9(); printf("\ntest9 Done !!!");fflush(stdout);
-    test10(); printf("\ntest10 Done !!!");fflush(stdout);
-    
-    test_detach(); printf("\ntest_detach Done !!!");fflush(stdout);
-	test_join_zombie(); printf("\ntest_join_zombie Done !!!");fflush(stdout);
-    test_sleep_main(); printf("test_sleep_main Done !!!");fflush(stdout);
-    test_sleep_thread(); printf("\ntest_sleep_thread Done !!!");fflush(stdout);
-    test_sleep_mutex_detached(); printf("\ntest_sleep_mutex_detached Done !!!");fflush(stdout);
-    test_read(); printf("\ntest_read Done !!!");fflush(stdout);
-    test_read_write(); printf("\ntest_read_write Done !!!"); fflush(stdout);
-    producer_consumer(); printf("\nproducer_consumer Done !!!");fflush(stdout);
+    test0();  printf ("\ntest0 Done !!!"); fflush(stdout);
+    test1();  printf ("\ntest1 Done !!!"); fflush(stdout);
+    test2();  printf ("\ntest2 Done !!!"); fflush(stdout);
+    test4();  printf ("\ntest4 Done !!!"); fflush(stdout);
+    test6();  printf ("\ntest6 Done !!!"); fflush(stdout);
+    test7();  printf ("\ntest7 Done !!!"); fflush(stdout);
+    test8();  printf ("\ntest8 Done !!!"); fflush(stdout);
+    test9();  printf ("\ntest9 Done !!!"); fflush(stdout);
+    test10(); printf("\ntest10 Done !!!"); fflush(stdout);
+    test11(); printf("\ntest11 Done !!!"); fflush(stdout);
+    test12(); printf("\ntest12 Done !!!"); fflush(stdout);
+    test13(); printf("\ntest13 Done !!!"); fflush(stdout);
+    test14(); printf("\ntest14 Done !!!"); fflush(stdout);
+    test15(); printf("\ntest15 Done !!!"); fflush(stdout);
+    test16(); printf("\ntest16 Done !!!"); fflush(stdout);
+    test17(); printf("\ntest17 Done !!!"); fflush(stdout);
+    test18(); printf("\ntest18 Done !!!"); fflush(stdout);
+    test19(); printf("\ntest19 Done !!!"); fflush(stdout);
         
-    printf("\n\n All tests Done !! No crashes encountered !! \n\n");
+    printf("\n\n All tests Done !! \n\n");
     return 0;
 }

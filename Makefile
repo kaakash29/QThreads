@@ -2,7 +2,7 @@
 # qthreads Makefile
 #
 
-EXES = test1 philosopher server test2
+EXES = test1 philosopher server sleep_test mutex_test exit_join_test condition_test io_test
 LIBS = libqthread.a 
 CFLAGS = -g -I.
 QTH = qthread.o
@@ -19,11 +19,31 @@ libqthread.a: $(QTH) do-switch.o
 test1: test1.o libqthread.a
 	gcc -g test1.o -o test1 -L. -lqthread 
 
-test2: test2.o libqthread.a
-	gcc -g test2.o -o test2 -L. -lqthread 
-
 philosopher: philosopher.o libqthread.a
 	gcc -g philosopher.o -o philosopher -L. -lqthread -lm
 
 server: server.o libqthread.a
 	gcc -g server.o -o server -L. -lqthread
+
+sleep_test: sleep_test.o libqthread.a
+	gcc -g sleep_test.o -o sleep_test -L. -lqthread
+
+mutex_test: mutex_test.o libqthread.a
+	gcc -g mutex_test.o -o mutex_test -L. -lqthread
+
+exit_join_test: exit_join_test.o libqthread.a
+	gcc -g exit_join_test.o -o exit_join_test -L. -lqthread
+
+condition_test: condition_test.o libqthread.a
+	gcc -g condition_test.o -o condition_test -L. -lqthread
+
+io_test: io_test.o libqthread.a
+	gcc -g io_test.o -o io_test -L. -lqthread
+
+test:
+	./test1 | grep -I "Done"
+	./sleep_test -v | ./greenest
+	./mutex_test -v | ./greenest
+	./exit_join_test -v | ./greenest
+	./condition_test -v | ./greenest
+	./io_test -v | ./greenest	
