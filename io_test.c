@@ -19,7 +19,7 @@ void* reader(void *p)
 void* writer(void *p)
 {
     int fd = (int) p;
-    //qt/hread_yield();
+    qthread_yield();
     assert(data == 0);
     int data = 42;
     ssize_t s = qthread_write(fd, &data, sizeof data);

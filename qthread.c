@@ -78,7 +78,6 @@ fd_set fd_set_write;    /* the fd_set for write */
  */
 struct qthread os_thread = {};
 struct qthread *current = &os_thread;
-
 /* the queue of runnable threads */
 queue_t RUNNABLE_Q = NULL;   
 /* the starting thread id value */
@@ -248,6 +247,30 @@ fd_wait_t io_unblock_threads(fd_wait_t head) {
 
 /* *************************************************************** */
 /*
+ * io_unblock_all_threads : fd_wait_t -> fd_wait_t
+ * Unblocks all the threads from the file descriptor list.
+ * The threads will be put in the Runnable queue.
+ */
+fd_wait_t io_unblock_all_threads(fd_wait_t head) {
+	fd_wait_t temp = head, prev;
+	temp = head;
+	prev = temp;
+	while (temp != NULL) {
+	    clear_queue_to_runnable(&temp->io_wait_q);	
+		if (prev == temp) {
+     		prev = temp->next;
+			head = temp->next;
+		}
+		else {
+			prev->next = temp->next;
+		}
+		temp = temp->next;
+	}
+	return head;
+}
+
+/* *************************************************************** */
+/*
  * context_switch : void -> void
  * Handles context switch between threads
  */ 
@@ -274,8 +297,13 @@ void context_switch(void) {
 				break;
 			}
 			else {
-				if ((RUNNABLE_Q != NULL) || (sleeping_threads != NULL) 
-				|| (io_thread_wait_fds != NULL)) {
+				if ((RUNNABLE_Q != NULL) || 
+				   (sleeping_threads != NULL)) {
+					enqueue(&RUNNABLE_Q, new_thread);
+				}
+				else if (io_thread_wait_fds != NULL) {
+					io_thread_wait_fds = 
+					  io_unblock_all_threads(io_thread_wait_fds);
 					enqueue(&RUNNABLE_Q, new_thread);
 				}
 			}
