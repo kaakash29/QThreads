@@ -1,4 +1,4 @@
-## Qthreads - A threading library on the lines for POSIX threads.
+## Qthreads - A pthreads-like threading library implementation.
 
 This project is a simplistic implementation of the threading library pthreads, the provided makefile builds the project and 
 returns a static library which can be linked to by other programs. 
