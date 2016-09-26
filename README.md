@@ -4,7 +4,7 @@ This project is a simplistic implementation of the threading library pthreads, t
 returns a static library which can be linked to by other programs. 
 
 ### Linking to QThreads:
-Any program can be linked to the Qthreads library by usig the _-lqthread_ option with gcc
+Any program can be linked to the Qthreads library by usig the **_-lqthread_** option with gcc
 
 ### Data Structures and API's Provided
 The following data structures and APIs are provided by the implementation:
@@ -35,9 +35,5 @@ The api's and data structures are very similar to the implementation of the pthr
 ## Testing
 We have tested our library against the dining philosopher's problem, a sample multithreaded web-server and several other multithreading programs written using the qthreads library. 
 
-To test the library use the 
-
-#### make test 
-
-command from the makefiles. 
+To test the library use the **_make test_** phony from the makefiles. 
 
